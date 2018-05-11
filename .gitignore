@@ -232,3 +232,8 @@ __pycache__/
 
 /qsub_files
 schedule.sh
+/dist
+/build
+*.egg*
+
+/data
