@@ -235,5 +235,4 @@ schedule.sh
 /dist
 /build
 *.egg*
-
-/data
+data/
