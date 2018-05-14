@@ -209,15 +209,14 @@ class GblupParallelEvaluator(ParallelEvaluator):
         to_evaluate = []
         indices = []
         for i, indv in enumerate(population):
-            unique = sorted(set(indv.genome))
+            unique = frozenset(indv.genome)
 
-            as_str = str(unique)
-            if as_str in self.archive:
-                indv.fitness = self.archive[as_str]
+            if unique in self.archive:
+                indv.fitness = self.archive[unique]
 
             else:
                 indices.append(i)
-                to_evaluate.append(unique)
+                to_evaluate.append(list(unique))
 
         return to_evaluate, indices
 
@@ -239,7 +238,7 @@ class GblupParallelEvaluator(ParallelEvaluator):
 
         for i, idx in enumerate(indices):
             population[idx].fitness = results[i].get()
-            self.archive[str(to_evaluate[i])] = population[idx].fitness
+            self.archive[frozenset(to_evaluate[i])] = population[idx].fitness
 
         return population
 
