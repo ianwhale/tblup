@@ -20,15 +20,21 @@ class IndexIndividual(Individual):
     """
     Individual whose genome is a list of column indices in a data matrix.
     """
-    def __init__(self, length, dimensionality):
+    def __init__(self, length, dimensionality, genome=None):
         """
         Constructor.
         :param length: int, length of the individual.
         :param dimensionality: int, the number of columns in the data
+        :param genome: list, optional list representing the genome.
         """
         super(IndexIndividual, self).__init__(length, dimensionality)
 
-        self.genome = random.sample(range(dimensionality), self.length)
+        if genome:
+            self.genome = genome
+
+        else:
+            self.genome = random.sample(range(dimensionality), self.length)
+
         self.fitness = float("-inf")
 
     def __len__(self):
