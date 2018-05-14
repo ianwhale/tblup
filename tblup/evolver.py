@@ -38,6 +38,12 @@ class DERandOneEvolver(Evolver):
         :param population: tblup.Population, current population object.
         :return: list, list of tblup.Individual.
         """
+        if population.generation % 5 == 0:
+            mi = 5
+
+        else:
+            mi = self.mutation_intensity
+
         next_pop = []
 
         pop_len = len(population)
@@ -57,7 +63,7 @@ class DERandOneEvolver(Evolver):
 
             for j in range(len(parent)):
                 if j == fixed or random.random() < self.crossover_rate:
-                    mutant = round(a[j] + self.mutation_intensity * (b[j] - c[j]))  # Round for integer solutions only.
+                    mutant = round(a[j] + mi * (b[j] - c[j]))  # Round for integer solutions only.
 
                     # Bound solutions.
                     if mutant >= self.dimensionality:
