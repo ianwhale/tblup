@@ -1,7 +1,6 @@
 # TBLUP 
 
-Trait BLUP [1,2], a large scale feature selection for genomic prediction using differential evolution. 
-A fairly simple algorithm that assigns fitness based off an individual's GBLUP [3] accuracy. 
+Trait BLUP [1,2], a large scale feature selection for genomic prediction using differential evolution; a fairly simple algorithm that assigns fitness based off an individual's GBLUP [3] accuracy. 
 
 See `main.py` for an example of how to run. This implementation uses numpy matrices throughout. 
 Convert data accordingly (data conversion scripts coming soon).  
