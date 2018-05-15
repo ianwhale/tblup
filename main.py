@@ -11,9 +11,6 @@ def main():
     """
     args = parser.parse_args()
 
-    args.population_size = 4
-    args.generations = 1
-
     random.seed(args.seed)
     numpy.random.seed(args.seed)
 
