@@ -67,11 +67,9 @@ def get_dimensionality(args):
     :param args: object, argparse.Namespace
     :return: int
     """
-    train_geno_cols = np.load(args.geno_train).shape[1]
-    test_geno_cols = np.load(args.geno_test).shape[1]
+    geno_cols = np.load(args.geno).shape[1]
 
-    assert train_geno_cols == test_geno_cols, "Training and testing data must have the same number of features."
-    return train_geno_cols
+    return geno_cols
 
 
 def get_seeded(args):

@@ -14,14 +14,14 @@ def get_evaluator(args):
     :return: tblup.Evaluator
     """
     if args.regressor == "gblup":
-        return GblupParallelEvaluator(args.geno_train, args.pheno_train, args.heritability, n_procs=args.processes)
+        return GblupParallelEvaluator(args.geno, args.pheno, args.heritability, n_procs=args.processes)
 
     if args.regressor == "intracv_gblup":
-        return IntraGCVGblupParallelEvaluator(args.geno_train, args.pheno_train, args.heritability,
+        return IntraGCVGblupParallelEvaluator(args.geno, args.pheno, args.heritability,
                                               n_procs=args.processes, n_folds=args.cv_folds)
 
     if args.regressor == "intercv_gblup":
-        return InterGCVGblupParallelEvaluator(args.geno_train, args.pheno_train, args.heritability,
+        return InterGCVGblupParallelEvaluator(args.geno, args.pheno, args.heritability,
                                               n_procs=args.processes, n_folds=args.cv_folds)
 
 
@@ -144,7 +144,8 @@ class GblupParallelEvaluator(ParallelEvaluator):
     Expects the individuals to have nonnegative integer valued genomes.
     """
 
-    TRAIN_PERCENTAGE = 0.8  # 80% of the data will be training, 20% will be validation.
+    TRAIN_TEST_SPLIT = 0.8   # 80% of the data will be training, 20% will be testing.
+    TRAIN_VALID_SPLIT = 0.8  # Of the training data, 20% will be validation.
 
     def __init__(self, data_path, labels_path, r, n_procs=-1):
         """
@@ -156,12 +157,17 @@ class GblupParallelEvaluator(ParallelEvaluator):
         super(GblupParallelEvaluator, self).__init__(data_path, labels_path, n_procs=n_procs)
         
         # Store individuals we have evaluated already.
-        # Indexing works as the hashed string of the list => fitness.
+        # Indexing works as the hashed frozenset of the list => fitness.
         self.archive = {}
 
         self.r = r  # Regularization parameter.
+
+        # Build training and testing indices.
         self.n_samples = np.load(data_path).shape[0]
-        self.indices = np.random.permutation([i for i in range(self.n_samples)])
+        indices = np.random.permutation([i for i in range(self.n_samples)])
+        n = int(len(indices) * self.TRAIN_TEST_SPLIT)
+        self.training_indices = indices[n:]
+        self.testing_indices = indices[:n]
 
     def gblup(self, indices, train_indices, validation_indices):
         """
@@ -169,6 +175,7 @@ class GblupParallelEvaluator(ParallelEvaluator):
         Note: for the uninitiated, GBLUP is basically ridge regression on a special matrix.
         :param indices: list, list of ints corresponding to the features indices to use.
         :param train_indices: list, list of ints corresponding to which samples to use for training.
+        :param validation_indices: list, list of ints corresponding to which samples to use for validation.
         :return: (np.ndarray, np.ndarray), (GRM, the GBLUP solution)
         """
         G = make_grm(self.data[:, indices])
@@ -188,8 +195,8 @@ class GblupParallelEvaluator(ParallelEvaluator):
         :param generation: int, current generation. Not used here, used in subclasses.
         :return: (list, list), tuple of list of ints, (training, validation) indices.
         """
-        n = int(len(self.indices) * self.TRAIN_PERCENTAGE)
-        return self.indices[n:], self.indices[:n]
+        n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
+        return self.training_indices[n:], self.training_indices[:n]
 
     def __call__(self, genome, generation):
         """
@@ -261,6 +268,32 @@ class GblupParallelEvaluator(ParallelEvaluator):
             self.archive[frozenset(to_evaluate[i])] = population[idx].fitness
 
         return population
+
+    def evaluate_testing(self, population):
+        """
+        Evaluate the whole population's testing accuracy.
+        :param population: tblup.Population.
+        :return:
+        """
+        results = []
+        for indv in population:
+            results.append(
+                self.pool.apply_async(self.testing_function, (indv,))
+            )
+
+        accs = []
+        for res in results:
+            accs.append(res.get()[0])
+
+        return accs
+
+    def testing_function(self, genome):
+        """
+        Same as __call__, but using the testing indices.
+        :param genome: list, list of indexes into data matrix.
+        :return: float, testing accuracy feature subset..
+        """
+        return self.gblup(genome, self.training_indices, self.testing_indices)
 
 
 class InterGCVGblupParallelEvaluator(GblupParallelEvaluator):
@@ -344,9 +377,9 @@ class IntraGCVGblupParallelEvaluator(InterGCVGblupParallelEvaluator):
         :param generation: int, current generation. Not used for this override.
         :return: float, fitness of genome. Average Pearson's R over the folds.
         """
-        sum = 0
+        fitness_sum = 0
         for k in range(self.n_folds):
             train_indices, validation_indices = self.train_validation_indices(k)
-            sum += self.gblup(genome, train_indices, validation_indices)
+            fitness_sum += self.gblup(genome, train_indices, validation_indices)
 
-        return sum / self.n_folds
+        return fitness_sum / self.n_folds

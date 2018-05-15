@@ -11,11 +11,9 @@ parser.add_argument("-p", "--processes", type=int, default=4, help="number of pa
 #
 # Data
 #
-parser.add_argument("--geno_train", default="./data/geno_train.npy", help="training genotype .npy file (m x n matrix)")
-parser.add_argument("--pheno_train", default="./data/pheno_train.npy",
+parser.add_argument("--geno", default="./data/geno.npy", help="training genotype .npy file (m x n matrix)")
+parser.add_argument("--pheno", default="./data/pheno.npy",
                     help="training phenotype .npy file (m x 1 vector)")
-parser.add_argument("--geno_test", default="./data/geno_test.npy", help="testing genotype .npy file (p x n matrix)")
-parser.add_argument("--pheno_test", default="./data/pheno_test.npy", help="testing phenotype .npy file (p x 1 vector)")
 
 #
 # Regression

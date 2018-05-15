@@ -11,6 +11,9 @@ def main():
     """
     args = parser.parse_args()
 
+    args.population_size = 4
+    args.generations = 1
+
     random.seed(args.seed)
     numpy.random.seed(args.seed)
 
@@ -24,6 +27,11 @@ def main():
             population.do_generation()
 
         population.monitor.save_archive(population)
+
+        results = evaluator.evaluate_testing(population)
+        population.monitor.write(
+            ["Testing"] + population.monitor.get_row_summary(results) + ["Final"]
+        )
 
 
 if __name__ == '__main__':

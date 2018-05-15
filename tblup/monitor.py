@@ -1,7 +1,7 @@
 import os
 import csv
 import pickle
-from math import sqrt
+import numpy as np
 from os.path import join, isdir, isfile
 
 
@@ -59,10 +59,10 @@ class Monitor:
             option_list.append(str(args.de_strategy))
 
         if args.feature_scheduling is not None:
-            option_list.append("f" + str(args.initial_features))
             option_list.append(str(args.feature_scheduling))
             option_list.append("i" + str(args.initial_features))
 
+        option_list.append("f" + str(args.features))
         option_list.append("n" + str(args.population_size))
         option_list.append("g" + str(args.generations))
         option_list.append("cr" + str(args.crossover_rate).replace(".", ""))
@@ -70,23 +70,24 @@ class Monitor:
 
         return "_".join(option_list)
 
+    def write(self, row):
+        """
+        Writes a row to the csv file.
+        :param row: list, list of values to write.
+        :return: list, the list that was written.
+        """
+        with open(self.results_file, "a") as f:
+            csv.writer(f).writerow(row)
+
+        return row
+
     def report(self, population):
         """
         Write statistics out to file.
         :param population: tblup.Population.
+        :return: list, the stats of the population.
         """
-        with open(self.results_file, "a") as f:
-            csv.writer(f).writerow(self.gather_stats(population))
-
-    def set_override(self, obj):
-        """
-        Override for json decoder to handle frozenset.
-        :raises: TypeError.
-        :return: list
-        """
-        if isinstance(obj, frozenset):
-            return str(list(obj))
-        raise TypeError
+        return self.write(self.gather_stats(population))
 
     def save_archive(self, population):
         """
@@ -102,38 +103,37 @@ class Monitor:
         :param population: tblup.Population.
         :return list: a row in the results file.
         """
-        sorted_pop = sorted(population, key=lambda x: x.fitness)
+        fits = [x.fitness for x in population]
+        current_length = len(population[0])
 
-        median_idx = len(population) / 2.0
+        return [population.generation] + self.get_row_summary(fits) + [current_length]
+
+    def get_row_summary(self, fitnesses):
+        """
+        Gets the summary statistics of a list of fitnesses.
+        :param fitnesses: list, list of floats.
+        :return: list, list of summary stats.
+        """
+        fitnesses.sort()
+
+        median_idx = len(fitnesses) / 2.0
         if int(median_idx) == median_idx:
             # Population length was even, use middle index.
-            median_fitness = sorted_pop[int(median_idx)].fitness
+            median_fitness = fitnesses[int(median_idx)]
 
         else:
             # Population length was odd, use average of two middle values.
-            median_fitness = (sorted_pop[int(median_idx)].fitness + population[int(median_idx) + 1].fitness) / 2
+            median_fitness = (fitnesses[int(median_idx)] + fitnesses[int(median_idx) + 1]) / 2
 
-        max_fitness = population[-1].fitness
-        min_fitness = population[0].fitness
-
-        fitness_sum = 0
-        sum_of_squares = 0
-        for indv in population:
-            fitness_sum += indv.fitness
-            sum_of_squares += indv.fitness * indv.fitness
-
-        n = len(population)
-        stdev_fitness = sqrt(n * sum_of_squares - (fitness_sum * fitness_sum) / (n * (n - 1)))
-        mean_fitness = fitness_sum / n
-
-        current_length = len(population[0])
+        max_fitness = fitnesses[-1]
+        min_fitness = fitnesses[0]
+        mean_fitness = np.asscalar(np.mean(fitnesses))
+        stdev_fitness = np.asscalar(np.std(fitnesses, ddof=1))
 
         return [
-            population.generation,
             round(max_fitness, self.ROUND_DECIMALS),
             round(min_fitness, self.ROUND_DECIMALS),
             round(median_fitness, self.ROUND_DECIMALS),
             round(mean_fitness, self.ROUND_DECIMALS),
             round(stdev_fitness, self.ROUND_DECIMALS),
-            current_length
         ]
