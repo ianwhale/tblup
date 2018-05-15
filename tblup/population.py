@@ -1,6 +1,3 @@
-import pickle
-
-
 class Population:
     def __init__(self, evolver, evaluator, selector, individual, scheduler, length,
                  dimensionality, num_individuals, monitor, seeded_initial=None):
@@ -22,8 +19,8 @@ class Population:
         self.selector = selector
         self.scheduler = scheduler
 
-        if seeded_initial:
-            self.population = seeded_initial
+        if seeded_initial is not None:
+            self.population = [individual(length, dimensionality, genome=genome) for genome in seeded_initial]
         else:
             self.population = [individual(length, dimensionality) for _ in range(num_individuals)]
 
@@ -32,7 +29,7 @@ class Population:
         self.generation = 0
 
         # Gather statistics on initial population.
-        self.evaluator.evaluate(self)
+        self.evaluator.evaluate(self, 0)
         self.monitor.report(self)
 
         self.generation += 1
@@ -45,7 +42,7 @@ class Population:
 
     def do_generation(self):
         next_pop = self.evolver.evolve(self)
-        self.evaluator.evaluate(next_pop)
+        self.evaluator.evaluate(next_pop, self.generation)
         self.population = self.selector.select(self, next_pop)
 
         # If we need to increase the individual length, we also must reevaluate.

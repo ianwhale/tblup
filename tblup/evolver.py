@@ -1,7 +1,17 @@
 import abc
 import random
 from copy import deepcopy
-from tblup.utils import exclusive_randrange
+from tblup import exclusive_randrange
+
+
+def get_evolver(args):
+    """
+    Gets the evolver type corresponding to a string.
+    :param args: object, argparse.Namespace.
+    :return: tblup.Evolver
+    """
+    if args.de_strategy == "de_rand_1":
+        return DERandOneEvolver(args.dimensionality, args.crossover_rate, args.mutation_intensity)
 
 
 class Evolver(abc.ABC):
@@ -55,6 +65,8 @@ class DERandOneEvolver(Evolver):
             a, b, c = exclusive_randrange(0, pop_len, i), \
                 exclusive_randrange(0, pop_len, i), \
                 exclusive_randrange(0, pop_len, i)
+
+            a, b, c = population[a], population[b], population[c]
 
             # Create candidate from mutators and parent.
             candidate = deepcopy(parent)

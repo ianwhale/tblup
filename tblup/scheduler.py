@@ -4,6 +4,19 @@ from tblup.utils import exclusive_randrange
 from tblup.individual import IndexIndividual
 
 
+def get_scheduler(args):
+    """
+    Gets the scheduler type corresponding to a string.
+    :param args: object, argparse.Namespace.
+    :return: tblup.FeatureScheduler
+    """
+    if args.initial_features is None:
+        return FeatureScheduler(args.initial_features, args.features, args.generations)
+
+    if args.feature_scheduling == "stepwise":
+        return StepwiseFeatureScheduler(args.initial_features, args.features, args.generations)
+
+
 class FeatureScheduler(object):
     """
     Feature scheduler base class, doesn't do anything.

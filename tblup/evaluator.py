@@ -2,9 +2,27 @@ import os
 import abc
 import numpy as np
 import multiprocessing as mp
-import tblup.sharearray.sharearray as sa
-from tblup.utils import make_grm
+from tblup import make_grm
+import tblup.sharearray as sa
 from scipy.stats import pearsonr
+
+
+def get_evaluator(args):
+    """
+    Gets the evaluator type corresponding to a string.
+    :param args: object, argparse.Namespace.
+    :return: tblup.Evaluator
+    """
+    if args.regressor == "gblup":
+        return GblupParallelEvaluator(args.geno_train, args.pheno_train, args.heritability, n_procs=args.processes)
+
+    if args.regressor == "intracv_gblup":
+        return IntraGCVGblupParallelEvaluator(args.geno_train, args.pheno_train, args.heritability,
+                                              n_procs=args.processes, n_folds=args.cv_folds)
+
+    if args.regressor == "intercv_gblup":
+        return InterGCVGblupParallelEvaluator(args.geno_train, args.pheno_train, args.heritability,
+                                              n_procs=args.processes, n_folds=args.cv_folds)
 
 
 class Evaluator(abc.ABC):
@@ -32,9 +50,10 @@ class Evaluator(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def evaluate(self, population):
+    def evaluate(self, population, generation):
         """
         :param population: tblup.Population
+        :param generation: int
         :return:
         """
         raise NotImplementedError()
@@ -107,10 +126,10 @@ class ParallelEvaluator(Evaluator):
     def genomes_to_evaluate(self, population):
         raise NotImplementedError()
 
-    def evaluate(self, population):
+    def evaluate(self, population, generation):
         """
         :param population: tblup.Population
-        :return:
+        :param generation: int
         """
         if self.pool is None:
             raise AttributeError("Pool was not set up.")
@@ -141,7 +160,7 @@ class GblupParallelEvaluator(ParallelEvaluator):
         self.archive = {}
 
         self.r = r  # Regularization parameter.
-        self.n_samples = self.data.shape[0]
+        self.n_samples = np.load(data_path).shape[0]
         self.indices = np.random.permutation([i for i in range(self.n_samples)])
 
     def gblup(self, indices, train_indices, validation_indices):
@@ -220,24 +239,25 @@ class GblupParallelEvaluator(ParallelEvaluator):
 
         return to_evaluate, indices
 
-    def evaluate(self, population):
+    def evaluate(self, population, generation):
         """
         Evaluate the population with GBLUP.
-        :param population: tblup.Population.
-        :return:
+        :param population: list, list of individuals..
+        :param generation: int, current generation.
+        :return: list, list of tblup.Individuals.
         """
-        super(GblupParallelEvaluator, self).evaluate(population)
+        super(GblupParallelEvaluator, self).evaluate(population, generation)
 
         to_evaluate, indices = self.genomes_to_evaluate(population)
 
         results = []
         for genome in to_evaluate:
             results.append(
-                self.pool.apply_async(self, (genome, population.generation))
+                self.pool.apply_async(self, (genome, generation))
             )
 
         for i, idx in enumerate(indices):
-            population[idx].fitness = results[i].get()
+            population[idx].fitness = results[i].get()[0]
             self.archive[frozenset(to_evaluate[i])] = population[idx].fitness
 
         return population

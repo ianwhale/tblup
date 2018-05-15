@@ -20,8 +20,10 @@ parser.add_argument("--pheno_test", default="./data/pheno_test.npy", help="testi
 #
 # Regression
 #
-parser.add_argument("--regressor", default="ridge", help="type of regression scheme, available types: gblup")
-parser.add_argument("-h2", "--heritability", type=float, default=0.4, help="heritability of trait being predicted")
+parser.add_argument("--regressor", default="gblup", help="type of regression scheme, available types: "
+                                                         "gblup, intracv_gblup, intercv_gblup")
+parser.add_argument("-h2", "--heritability", type=float, default=0.16, help="heritability of trait being predicted")
+parser.add_argument("--cv_folds", type=int, default=5, help="number of folds to use in cross-validation")
 
 #
 # Evolutionary
@@ -33,5 +35,9 @@ parser.add_argument("--initial_features", type=int, default=None, help="features
 parser.add_argument("--feature_scheduling", default=None,
                     help="scheduling scheme for increasing features (used if initial features is supplied)"
                          "available types: stepwise, adaptive")
+parser.add_argument("-de", "--de_strategy", default="de_rand_1", help="type of differential evolution scheme"
+                                                                      "available types: de_rand_1")
 parser.add_argument("-cr", "--crossover_rate", type=float, default=0.8, help="probability of crossover")
 parser.add_argument("-mi", "--mutation_intensity", type=float, default=0.5, help="mutation intensity")
+parser.add_argument("--seed_population", default=None, help="path to .json file corresponding to the genomes"
+                                                            " of some desired initial population")

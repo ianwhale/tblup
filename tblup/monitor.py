@@ -1,8 +1,7 @@
 import os
 import csv
-import json
+import pickle
 from math import sqrt
-from collections import defaultdict
 from os.path import join, isdir, isfile
 
 
@@ -39,8 +38,10 @@ class Monitor:
             temp_res = results_file + "_" + str(i)
             temp_arch = archive_file + "_" + str(i)
 
+            i += 1
+
         self.results_file = temp_res + ".csv"
-        self.archive_file = temp_arch + ".json"
+        self.archive_file = temp_arch + ".pkl"
 
         header = ["generation", "max_fitness", "min_fitness", "median_fitness", "mean_fitness", "stdev_fitness", "len"]
         with open(self.results_file, "w") as f:
@@ -58,10 +59,10 @@ class Monitor:
             option_list.append(str(args.de_strategy))
 
         if args.feature_scheduling is not None:
+            option_list.append("f" + str(args.initial_features))
             option_list.append(str(args.feature_scheduling))
             option_list.append("i" + str(args.initial_features))
 
-        option_list.append("f" + str(args.initial_features))
         option_list.append("n" + str(args.population_size))
         option_list.append("g" + str(args.generations))
         option_list.append("cr" + str(args.crossover_rate).replace(".", ""))
@@ -76,6 +77,24 @@ class Monitor:
         """
         with open(self.results_file, "a") as f:
             csv.writer(f).writerow(self.gather_stats(population))
+
+    def set_override(self, obj):
+        """
+        Override for json decoder to handle frozenset.
+        :raises: TypeError.
+        :return: list
+        """
+        if isinstance(obj, frozenset):
+            return str(list(obj))
+        raise TypeError
+
+    def save_archive(self, population):
+        """
+        Save the archive out to a JSON file.
+        :param population: tblup.Population, the current population.
+        """
+        with open(self.archive_file, "wb") as f:
+            pickle.dump(population.evaluator.archive, f)
 
     def gather_stats(self, population):
         """
@@ -101,13 +120,20 @@ class Monitor:
         sum_of_squares = 0
         for indv in population:
             fitness_sum += indv.fitness
-            sum_of_squares = indv.fitness * indv.fitness
+            sum_of_squares += indv.fitness * indv.fitness
 
         n = len(population)
-        stdev_fitness = sqrt(sum_of_squares - ((fitness_sum * fitness_sum) / n) / (n - 1))
+        stdev_fitness = sqrt(n * sum_of_squares - (fitness_sum * fitness_sum) / (n * (n - 1)))
         mean_fitness = fitness_sum / n
 
         current_length = len(population[0])
 
-        return [population.generation, max_fitness, min_fitness, median_fitness,
-                mean_fitness, stdev_fitness, current_length]
+        return [
+            population.generation,
+            round(max_fitness, self.ROUND_DECIMALS),
+            round(min_fitness, self.ROUND_DECIMALS),
+            round(median_fitness, self.ROUND_DECIMALS),
+            round(mean_fitness, self.ROUND_DECIMALS),
+            round(stdev_fitness, self.ROUND_DECIMALS),
+            current_length
+        ]

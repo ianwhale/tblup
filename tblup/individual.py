@@ -1,7 +1,6 @@
 import abc
 import random
 
-
 class Individual(abc.ABC):
     """
     Individual base class.

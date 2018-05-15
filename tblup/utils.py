@@ -1,3 +1,5 @@
+import os
+import json
 import random
 import numpy as np
 
@@ -36,4 +38,52 @@ def build_kwargs(args):
     :param args: object, argparse arguments.
     :return: dict, kwargs
     """
-    return {}
+    from tblup import get_evolver
+    from tblup import get_evaluator
+    from tblup import IndexIndividual
+    from tblup import get_scheduler
+    from tblup import Monitor
+    from tblup import DifferentialEvolutionSelector
+
+    args.dimensionality = get_dimensionality(args)
+
+    return {
+        "evolver": get_evolver(args),
+        "evaluator": get_evaluator(args),
+        "selector": DifferentialEvolutionSelector(),
+        "individual": IndexIndividual,
+        "scheduler": get_scheduler(args),
+        "length": args.initial_features if args.initial_features else args.features,
+        "dimensionality": args.dimensionality,
+        "num_individuals": args.population_size,
+        "monitor": Monitor(args),
+        "seeded_initial": get_seeded(args)
+    }
+
+
+def get_dimensionality(args):
+    """
+    Get the number of columns in the provided dataset.
+    :param args: object, argparse.Namespace
+    :return: int
+    """
+    train_geno_cols = np.load(args.geno_train).shape[1]
+    test_geno_cols = np.load(args.geno_test).shape[1]
+
+    assert train_geno_cols == test_geno_cols, "Training and testing data must have the same number of features."
+    return train_geno_cols
+
+
+def get_seeded(args):
+    """
+    Get the seeded population from the designated file.
+    Designated file should be a json file.
+    :param args: object, argparse.Namespace
+    :return: None | list
+    """
+    out = None
+    if args.seed_population is not None and os.path.isfile(args.seed_population):
+        with open(args.seed_population, "r") as f:
+            out = json.load(f)
+
+    return out
