@@ -236,3 +236,4 @@ schedule.sh
 /build
 *.egg*
 data/
+results/
