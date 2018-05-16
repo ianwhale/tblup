@@ -14,7 +14,10 @@ def get_scheduler(args):
         return FeatureScheduler(args.initial_features, args.features, args.generations)
 
     if args.feature_scheduling == "stepwise":
-        return StepwiseFeatureScheduler(args.initial_features, args.features, args.generations)
+        return StepwiseScheduler(args.initial_features, args.features, args.generations)
+
+    if args.feature_scheduling == "adaptive":
+        return AdaptiveScheduler(args.initial_features, args.features, args.generations)
 
 
 class FeatureScheduler(object):
@@ -33,7 +36,7 @@ class FeatureScheduler(object):
         pass
 
 
-class StepwiseFeatureScheduler(FeatureScheduler):
+class StepwiseScheduler(FeatureScheduler):
     """
     Scheduler doubles the genome length at regular intervals throughout the search.
     """
@@ -44,7 +47,7 @@ class StepwiseFeatureScheduler(FeatureScheduler):
         :param final_features: int, ending number of features.
         :param generations: int, total number of generations.
         """
-        super(StepwiseFeatureScheduler, self).__init__(initial_features, final_features, generations)
+        super(StepwiseScheduler, self).__init__(initial_features, final_features, generations)
 
         # Number of times we will double the genome length plus once more to
         # make genome length the correct final size.
@@ -118,7 +121,7 @@ class StepwiseFeatureScheduler(FeatureScheduler):
         self.step_count -= 1
 
 
-class AdaptiveScheduler(StepwiseFeatureScheduler):
+class AdaptiveScheduler(StepwiseScheduler):
     """
     This scheduler updates individuals if the past individual with the maximum fitness hasn't changed
     in some predetermined number of generations.

@@ -1,5 +1,6 @@
 import os
 import abc
+import random
 import numpy as np
 import multiprocessing as mp
 from tblup import make_grm
@@ -109,9 +110,7 @@ class ParallelEvaluator(Evaluator):
         Handle loading the data into shared memory if needed.
         :return: np.ndarray
         """
-        def load_data():
-            return np.load(self.data_path)
-        return sa.cache(self.data_id, load_data, verbose=False)
+        return sa.cache(self.data_id, np.load(self.data_path), verbose=False)
 
     @property
     def labels(self):
@@ -119,9 +118,7 @@ class ParallelEvaluator(Evaluator):
         Handle loading the labels into shared memory if needed.
         :return: np.ndarray
         """
-        def load_labels():
-            return np.load(self.labels_path)
-        return sa.cache(self.labels_id, load_labels, verbose=False)
+        return sa.cache(self.labels_id, np.load(self.labels_path), verbose=False)
 
     def genomes_to_evaluate(self, population):
         raise NotImplementedError()
@@ -164,10 +161,10 @@ class GblupParallelEvaluator(ParallelEvaluator):
 
         # Build training and testing indices.
         self.n_samples = np.load(data_path).shape[0]
-        indices = np.random.permutation([i for i in range(self.n_samples)])
+        indices = random.sample(range(self.n_samples), self.n_samples)
         n = int(len(indices) * self.TRAIN_TEST_SPLIT)
-        self.training_indices = indices[n:]
-        self.testing_indices = indices[:n]
+        self.training_indices = indices[:n]
+        self.testing_indices = indices[n:]
 
     def gblup(self, indices, train_indices, validation_indices):
         """
@@ -206,7 +203,7 @@ class GblupParallelEvaluator(ParallelEvaluator):
         :return: float, fitness of genome.
         """
         train_indices, validation_indices = self.train_validation_indices(generation)
-        return self.gblup(genome, train_indices, validation_indices)
+        return np.asscalar(self.gblup(genome, train_indices, validation_indices))
 
     def __getstate__(self):
         """
@@ -264,7 +261,7 @@ class GblupParallelEvaluator(ParallelEvaluator):
             )
 
         for i, idx in enumerate(indices):
-            population[idx].fitness = results[i].get()[0]
+            population[idx].fitness = results[i].get()
             self.archive[frozenset(to_evaluate[i])] = population[idx].fitness
 
         return population
@@ -310,10 +307,10 @@ class InterGCVGblupParallelEvaluator(GblupParallelEvaluator):
         See parent doc.
         :param n_folds: int, number of cross validation folds.
         """
-        super(GblupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs)
+        super(InterGCVGblupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs)
 
         self.n_folds = n_folds
-        self.fold_indices = self.make_fold_indices(self.indices, self.n_folds)
+        self.fold_indices = self.make_fold_indices(self.training_indices, self.n_folds)
 
     @staticmethod
     def make_fold_indices(indices, n_folds):
@@ -377,9 +374,12 @@ class IntraGCVGblupParallelEvaluator(InterGCVGblupParallelEvaluator):
         :param generation: int, current generation. Not used for this override.
         :return: float, fitness of genome. Average Pearson's R over the folds.
         """
+        self.data
+        return 0
+
         fitness_sum = 0
         for k in range(self.n_folds):
             train_indices, validation_indices = self.train_validation_indices(k)
             fitness_sum += self.gblup(genome, train_indices, validation_indices)
 
-        return fitness_sum / self.n_folds
+        return np.asscalar(fitness_sum / self.n_folds)
