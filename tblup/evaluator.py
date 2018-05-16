@@ -374,9 +374,6 @@ class IntraGCVGblupParallelEvaluator(InterGCVGblupParallelEvaluator):
         :param generation: int, current generation. Not used for this override.
         :return: float, fitness of genome. Average Pearson's R over the folds.
         """
-        self.data
-        return 0
-
         fitness_sum = 0
         for k in range(self.n_folds):
             train_indices, validation_indices = self.train_validation_indices(k)
