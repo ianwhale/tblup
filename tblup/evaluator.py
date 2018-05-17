@@ -6,6 +6,7 @@ import multiprocessing as mp
 from tblup import make_grm
 import tblup.sharearray as sa
 from scipy.stats import pearsonr
+from sklearn.linear_model import Ridge
 
 
 def get_evaluator(args):
@@ -14,16 +15,16 @@ def get_evaluator(args):
     :param args: object, argparse.Namespace.
     :return: tblup.Evaluator
     """
-    if args.regressor == "gblup":
-        return GblupParallelEvaluator(args.geno, args.pheno, args.heritability, n_procs=args.processes)
+    if args.regressor == "blup":
+        return BlupParallelEvaluator(args.geno, args.pheno, args.heritability, n_procs=args.processes)
 
-    if args.regressor == "intracv_gblup":
-        return IntraGCVGblupParallelEvaluator(args.geno, args.pheno, args.heritability,
+    if args.regressor == "intracv_blup":
+        return IntraGCVBlupParallelEvaluator(args.geno, args.pheno, args.heritability,
                                               n_procs=args.processes, n_folds=args.cv_folds)
 
-    if args.regressor == "intercv_gblup":
-        return InterGCVGblupParallelEvaluator(args.geno, args.pheno, args.heritability,
-                                              n_procs=args.processes, n_folds=args.cv_folds)
+    if args.regressor == "intercv_blup":
+        return InterGCVBlupParallelEvaluator(args.geno, args.pheno, args.heritability,
+                                             n_procs=args.processes, n_folds=args.cv_folds)
 
 
 class Evaluator(abc.ABC):
@@ -134,7 +135,7 @@ class ParallelEvaluator(Evaluator):
         pass
 
 
-class GblupParallelEvaluator(ParallelEvaluator):
+class BlupParallelEvaluator(ParallelEvaluator):
     """
     Evaluates individuals using multiprocessing and genomic best linear unbiased predictor.
 
@@ -151,7 +152,7 @@ class GblupParallelEvaluator(ParallelEvaluator):
         :param labels_path: string, path to the labels for the training data.
         :param r: float, regularization parameter.
         """
-        super(GblupParallelEvaluator, self).__init__(data_path, labels_path, n_procs=n_procs)
+        super(BlupParallelEvaluator, self).__init__(data_path, labels_path, n_procs=n_procs)
         
         # Store individuals we have evaluated already.
         # Indexing works as the hashed frozenset of the list => fitness.
@@ -160,20 +161,38 @@ class GblupParallelEvaluator(ParallelEvaluator):
         self.r = r  # Regularization parameter.
 
         # Build training and testing indices.
-        self.n_samples = np.load(data_path).shape[0]
+        shape = np.load(data_path).shape
+        self.n_samples, self.n_columns = shape[0], shape[1]
         indices = random.sample(range(self.n_samples), self.n_samples)
         n = int(len(indices) * self.TRAIN_TEST_SPLIT)
         self.training_indices = indices[:n]
         self.testing_indices = indices[n:]
 
-    def gblup(self, indices, train_indices, validation_indices):
+    def blup(self, indices, train_indices, validation_indices):
         """
-        Do GBLUP on the provided data. Assumes self.data is SNP data in {0, 1, 2} format.
-        Note: for the uninitiated, GBLUP is basically ridge regression on a special matrix.
+        Do BLUP on the provided data. Assumes self.data is SNP data in {0, 1, 2} format.
+
         :param indices: list, list of ints corresponding to the features indices to use.
         :param train_indices: list, list of ints corresponding to which samples to use for training.
         :param validation_indices: list, list of ints corresponding to which samples to use for validation.
-        :return: (np.ndarray, np.ndarray), (GRM, the GBLUP solution)
+        :return: float, prediction accuracy.
+        """
+        if self.n_columns > self.n_samples:
+            # Do GBLUP. The GRM will be more efficient since we have more columns than samples.
+            return self.gblup(indices, train_indices, validation_indices)
+
+        else:
+            # Do SNP-BLUP. Calculating the GRM is more costly in this case, so we just do normal ridge regression.
+            return self.snp_blup(indices, train_indices, validation_indices)
+
+    def gblup(self, indices, train_indices, validation_indices):
+        """
+        Do GBLUP on the provided data. Assumes self.data is SNP data in {0, 1, 2} format.
+
+        :param indices: list, list of ints corresponding to the features indices to use.
+        :param train_indices: list, list of ints corresponding to which samples to use for training.
+        :param validation_indices: list, list of ints corresponding to which samples to use for validation.
+        :return: float, prediction accuracy.
         """
         G = make_grm(self.data[:, indices])
 
@@ -185,6 +204,33 @@ class GblupParallelEvaluator(ParallelEvaluator):
         prediction = np.matmul(np.matmul(G[:, train_indices], G_inv), self.labels[train_indices])
 
         return abs(pearsonr(self.labels[validation_indices], prediction[validation_indices])[0])
+
+    def snp_blup(self, indices, train_indices, validation_indices):
+        """
+        Do SNP-BLUP on the provided data. Assumes self.data is SNP data in {0, 1, 2} format.
+
+        :param indices: list, list of ints corresponding to the features indices to use.
+        :param train_indices: list, list of ints corresponding to which samples to use for training.
+        :param validation_indices: list, list of ints corresponding to which samples to use for validation.
+        :return: float, prediction accuracy.
+        """
+        X = self.data[:, indices]
+        y = self.labels
+
+        X_train, X_valid = X[train_indices], X[validation_indices]
+        y_train, y_valid = y[train_indices], y[validation_indices]
+
+        p = np.mean(X_train, axis=0) / 2
+        d = 2 * np.sum(p * (1 - p))
+        l = (1 - self.r) / (self.r / d)
+
+        X_train -= (2 * p)
+        X_valid -= (2 * p)
+
+        clf = Ridge(alpha=l)
+        clf.fit(X_train, y_train)
+
+        return abs(pearsonr(clf.predict(X_valid), y_valid)[0])
 
     def train_validation_indices(self, generation):
         """
@@ -203,7 +249,7 @@ class GblupParallelEvaluator(ParallelEvaluator):
         :return: float, fitness of genome.
         """
         train_indices, validation_indices = self.train_validation_indices(generation)
-        return np.asscalar(self.gblup(genome, train_indices, validation_indices))
+        return np.asscalar(self.blup(genome, train_indices, validation_indices))
 
     def __getstate__(self):
         """
@@ -221,7 +267,7 @@ class GblupParallelEvaluator(ParallelEvaluator):
         return safe_dict
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        super(GblupParallelEvaluator, self).__exit__(exc_type, exc_val, exc_tb)
+        super(BlupParallelEvaluator, self).__exit__(exc_type, exc_val, exc_tb)
 
     def genomes_to_evaluate(self, population):
         """
@@ -250,7 +296,7 @@ class GblupParallelEvaluator(ParallelEvaluator):
         :param generation: int, current generation.
         :return: list, list of tblup.Individuals.
         """
-        super(GblupParallelEvaluator, self).evaluate(population, generation)
+        super(BlupParallelEvaluator, self).evaluate(population, generation)
 
         to_evaluate, indices = self.genomes_to_evaluate(population)
 
@@ -290,12 +336,12 @@ class GblupParallelEvaluator(ParallelEvaluator):
         :param genome: list, list of indexes into data matrix.
         :return: float, testing accuracy feature subset..
         """
-        return self.gblup(genome, self.training_indices, self.testing_indices)
+        return self.blup(genome, self.training_indices, self.testing_indices)
 
 
-class InterGCVGblupParallelEvaluator(GblupParallelEvaluator):
+class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):
     """
-    Same as GblupParallelEvaluator, but with cross-validation between generations.
+    Same as BlupParallelEvaluator, but with cross-validation between generations.
     This means that the validation set is changed each generation.
 
     InterGCV = intergenerational cross validation, or between generations.
@@ -307,7 +353,7 @@ class InterGCVGblupParallelEvaluator(GblupParallelEvaluator):
         See parent doc.
         :param n_folds: int, number of cross validation folds.
         """
-        super(InterGCVGblupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs)
+        super(InterGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs)
 
         self.n_folds = n_folds
         self.fold_indices = self.make_fold_indices(self.training_indices, self.n_folds)
@@ -351,9 +397,9 @@ class InterGCVGblupParallelEvaluator(GblupParallelEvaluator):
         return train, self.fold_indices[generation % self.n_folds]
 
 
-class IntraGCVGblupParallelEvaluator(InterGCVGblupParallelEvaluator):
+class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
     """
-    Same as GblupParallelEvaluator, but with k-fold cross-validation within a fitness evaluation.
+    Same as BlupParallelEvaluator, but with k-fold cross-validation within a fitness evaluation.
 
     IntraGCV = intragenerational cross validation, or within generations.
 
@@ -363,13 +409,12 @@ class IntraGCVGblupParallelEvaluator(InterGCVGblupParallelEvaluator):
         """
         See parent doc.
         """
-        super(IntraGCVGblupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs,
-                                                             n_folds=n_folds)
+        super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs, n_folds=n_folds)
 
     def __call__(self, genome, generation):
         """
         Call magic method, assign fitness to genome.
-        Does k-fold cross-validated GBLUP.
+        Does k-fold cross-validated BLUP.
         :param genome: list, list of indexes into data matrix.
         :param generation: int, current generation. Not used for this override.
         :return: float, fitness of genome. Average Pearson's R over the folds.
@@ -377,6 +422,6 @@ class IntraGCVGblupParallelEvaluator(InterGCVGblupParallelEvaluator):
         fitness_sum = 0
         for k in range(self.n_folds):
             train_indices, validation_indices = self.train_validation_indices(k)
-            fitness_sum += self.gblup(genome, train_indices, validation_indices)
+            fitness_sum += self.blup(genome, train_indices, validation_indices)
 
         return np.asscalar(fitness_sum / self.n_folds)
