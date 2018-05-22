@@ -27,7 +27,7 @@ parser.add_argument("--pca_outliers", type=bool, default=False, help="only has a
 # Regression
 #
 parser.add_argument("--regressor", default="blup", help="type of regression scheme, available types: "
-                                                         "blup, intracv_blup, intercv_blup")
+                                                        "blup, intracv_blup, intercv_blup")
 parser.add_argument("-h2", "--heritability", type=float, default=0.16, help="heritability of trait being predicted")
 parser.add_argument("--cv_folds", type=int, default=5, help="number of folds to use in cross-validation")
 

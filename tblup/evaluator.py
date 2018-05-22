@@ -20,7 +20,8 @@ def get_evaluator(args):
         splitter = None
 
     elif args.splitter == "pca":
-        splitter = pca_splitter
+        # Decorate the splitter function so we only have to pass in the data later.
+        splitter = lambda data: pca_splitter(data, outliers=args.pca_outliers)
 
     if args.regressor == "blup":
         return BlupParallelEvaluator(args.geno, args.pheno, args.heritability, n_procs=args.processes,
