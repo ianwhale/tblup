@@ -7,6 +7,7 @@ from tblup import make_grm
 import tblup.sharearray as sa
 from scipy.stats import pearsonr
 from sklearn.linear_model import Ridge
+from sklearn.decomposition import PCA
 
 
 def get_evaluator(args):
@@ -15,16 +16,30 @@ def get_evaluator(args):
     :param args: object, argparse.Namespace.
     :return: tblup.Evaluator
     """
+    if args.splitter is None:
+        splitter = None
+
+    elif args.splitter == "pca":
+        splitter = pca_splitter
+
     if args.regressor == "blup":
-        return BlupParallelEvaluator(args.geno, args.pheno, args.heritability, n_procs=args.processes)
+        return BlupParallelEvaluator(args.geno, args.pheno, args.heritability, n_procs=args.processes,
+                                     splitter=splitter)
 
     if args.regressor == "intracv_blup":
         return IntraGCVBlupParallelEvaluator(args.geno, args.pheno, args.heritability,
-                                              n_procs=args.processes, n_folds=args.cv_folds)
+                                             n_procs=args.processes, n_folds=args.cv_folds,
+                                             splitter=splitter)
 
     if args.regressor == "intercv_blup":
         return InterGCVBlupParallelEvaluator(args.geno, args.pheno, args.heritability,
-                                             n_procs=args.processes, n_folds=args.cv_folds)
+                                             n_procs=args.processes, n_folds=args.cv_folds,
+                                             splitter=splitter)
+
+
+#################################################
+#                  Evaluators                   #
+#################################################
 
 
 class Evaluator(abc.ABC):
@@ -145,15 +160,18 @@ class BlupParallelEvaluator(ParallelEvaluator):
     TRAIN_TEST_SPLIT = 0.8   # 80% of the data will be training, 20% will be testing.
     TRAIN_VALID_SPLIT = 0.8  # Of the training data, 20% will be validation.
 
-    def __init__(self, data_path, labels_path, r, n_procs=-1):
+    def __init__(self, data_path, labels_path, r, n_procs=-1, splitter=None):
         """
         Constructor.
         :param data_path: string, path to the training data.
         :param labels_path: string, path to the labels for the training data.
         :param r: float, regularization parameter.
+        :param n_procs: int, number of processes to use.
+        :param splitter: callable | None, a special function to split the data into training and testing (optional).
+            - If not provided, we just shuffle and use a specified split.
         """
         super(BlupParallelEvaluator, self).__init__(data_path, labels_path, n_procs=n_procs)
-        
+
         # Store individuals we have evaluated already.
         # Indexing works as the hashed frozenset of the list => fitness.
         self.archive = {}
@@ -161,12 +179,19 @@ class BlupParallelEvaluator(ParallelEvaluator):
         self.r = r  # Regularization parameter.
 
         # Build training and testing indices.
-        shape = np.load(data_path).shape
+        data = np.load(data_path)
+        shape = data.shape
         self.n_samples, self.n_columns = shape[0], shape[1]
-        indices = random.sample(range(self.n_samples), self.n_samples)
-        n = int(len(indices) * self.TRAIN_TEST_SPLIT)
-        self.training_indices = indices[:n]
-        self.testing_indices = indices[n:]
+
+        if splitter:
+            self.training_indices, self.testing_indices = splitter(data)
+
+        else:
+            indices = random.sample(range(self.n_samples), self.n_samples)
+            n = int(len(indices) * self.TRAIN_TEST_SPLIT)
+
+            self.training_indices = indices[:n]
+            self.testing_indices = indices[n:]
 
     def blup(self, indices, train_indices, validation_indices):
         """
@@ -348,12 +373,13 @@ class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):
 
     Only overrides the constructor and train_validation_indices.
     """
-    def __init__(self, data_path, labels_path, r, n_procs=-1, n_folds=5):
+    def __init__(self, data_path, labels_path, r, n_procs=-1, n_folds=5, splitter=None):
         """
         See parent doc.
         :param n_folds: int, number of cross validation folds.
         """
-        super(InterGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs)
+        super(InterGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs,
+                                                            splitter=splitter)
 
         self.n_folds = n_folds
         self.fold_indices = self.make_fold_indices(self.training_indices, self.n_folds)
@@ -405,11 +431,12 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
 
     Only overrides the call method.
     """
-    def __init__(self, data_path, labels_path, r, n_procs=-1, n_folds=5):
+    def __init__(self, data_path, labels_path, r, n_procs=-1, n_folds=5, splitter=None):
         """
         See parent doc.
         """
-        super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs, n_folds=n_folds)
+        super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs, n_folds=n_folds,
+                                                            splitter=splitter)
 
     def __call__(self, genome, generation):
         """
@@ -425,3 +452,33 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
             fitness_sum += self.blup(genome, train_indices, validation_indices)
 
         return np.asscalar(fitness_sum / self.n_folds)
+
+
+#################################################
+#                  Splitters                    #
+#################################################
+
+
+def pca_splitter(data, split=0.8, outliers=False):
+    """
+    PCA Splitter. Splits based on inliers or outliers when GRM projected into 2 dimensions.
+
+    :param data: np.ndarray, data matrix.
+    :param split: float, what percent of the data to use as training.
+    :param outliers: bool, true for training set to be the outliers.
+    """
+    proj = PCA(n_components=2)
+    x = proj.fit_transform(make_grm(data))
+
+    mu = np.mean(x, axis=0)
+
+    dists = (x - mu) ** 2
+    dists = dists[:, 0] + dists[:, 1]
+
+    idx_dist = [(i, dists[i]) for i in range(len(dists))]
+    idx_dist.sort(key=lambda x: x[1], reverse=outliers)
+
+    idxs = [x[0] for x in idx_dist]
+    n = int(len(idxs) * split)
+
+    return idxs[:n], idxs[n:]

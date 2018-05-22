@@ -1,6 +1,6 @@
 import os
-import json
 import random
+import pickle
 import numpy as np
 
 
@@ -82,6 +82,6 @@ def get_seeded(args):
     out = None
     if args.seed_population is not None and os.path.isfile(args.seed_population):
         with open(args.seed_population, "r") as f:
-            out = json.load(f)
+            out = pickle.load(f)
 
     return out

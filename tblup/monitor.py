@@ -53,7 +53,18 @@ class Monitor:
         :param args: object, argparse.Namespace.
         :return: string
         """
-        option_list = [str(args.regressor)]
+        if args.output:
+            return str(args.output)
+
+        option_list = []
+
+        if args.splitter is not None:
+            option_list.append(str(args.splitter))
+
+            if args.splitter == "pca":
+                option_list.append(str(args.pca_outliers).lower())
+
+        option_list.append(str(args.regressor))
 
         if args.de_strategy != "de_rand_1":
             option_list.append(str(args.de_strategy))

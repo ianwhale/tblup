@@ -7,6 +7,7 @@ parser = argparse.ArgumentParser(description="TBLUP Python Implementation")
 #
 parser.add_argument("-s", "--seed", type=int, default=0, help="value of random seed")
 parser.add_argument("-p", "--processes", type=int, default=4, help="number of parallel processes, -1 to use maximum")
+parser.add_argument("-o", "--output", default=None, help="override automatic results directory name")
 
 #
 # Data
@@ -14,6 +15,13 @@ parser.add_argument("-p", "--processes", type=int, default=4, help="number of pa
 parser.add_argument("--geno", default="./data/geno.npy", help="training genotype .npy file (m x n matrix)")
 parser.add_argument("--pheno", default="./data/pheno.npy",
                     help="training phenotype .npy file (m x 1 vector)")
+parser.add_argument("--splitter", default=None, help="a custom train/test split function, available types: "
+                                                     "pca")
+parser.add_argument("--pca_outliers", type=bool, default=False, help="only has an effect when splitter is pca, "
+                                                                     "if false, the training data will be the pca "
+                                                                     "inliers "
+                                                                     "if true, the training data will be the pca "
+                                                                     "outliers")
 
 #
 # Regression
