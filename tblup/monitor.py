@@ -58,6 +58,10 @@ class Monitor:
 
         option_list = []
 
+        if args.seeder is not None:
+            option_list.append(str(args.seeder))
+            option_list.append(str(args.seeder_metric))
+
         if args.splitter is not None:
             option_list.append(str(args.splitter))
 
