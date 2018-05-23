@@ -7,3 +7,4 @@ from tblup.monitor import *
 from tblup.population import *
 from tblup.scheduler import *
 from tblup.selector import *
+from tblup.seeder import *

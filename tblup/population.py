@@ -12,7 +12,7 @@ class Population:
         :param dimensionality: int, dimensionality of the problem.
         :param num_individuals: int, number of individuals in the population.
         :param monitor: tblup.Monitor, gathers population statistics.
-        :param seeded_initial: list, list of tblup.Individuals with some desirable initial properties.
+        :param seeded_initial: iterable, tblup.Individuals with some desirable initial properties.
         """
         self.evolver = evolver
         self.evaluator = evaluator

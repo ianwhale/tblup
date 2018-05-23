@@ -45,5 +45,6 @@ parser.add_argument("-de", "--de_strategy", default="de_rand_1", help="type of d
                                                                       "available types: de_rand_1")
 parser.add_argument("-cr", "--crossover_rate", type=float, default=0.8, help="probability of crossover")
 parser.add_argument("-mi", "--mutation_intensity", type=float, default=0.5, help="mutation intensity")
-parser.add_argument("--seed_population", default=None, help="path to .json file corresponding to the genomes"
-                                                            " of some desired initial population")
+parser.add_argument("--seeder", default=None, help="seeder to use, available types: half-half, one-elite")
+parser.add_argument("--seeder_metric", default="p_value", help="the metric the seeder will use to filter the data "
+                                                          "available types: p_value")

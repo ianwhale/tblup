@@ -44,10 +44,11 @@ def build_kwargs(args):
     from tblup import get_scheduler
     from tblup import Monitor
     from tblup import DifferentialEvolutionSelector
+    from tblup import get_seeder
 
     args.dimensionality = get_dimensionality(args)
 
-    return {
+    d = {
         "evolver": get_evolver(args),
         "evaluator": get_evaluator(args),
         "selector": DifferentialEvolutionSelector(),
@@ -56,9 +57,12 @@ def build_kwargs(args):
         "length": args.initial_features if args.initial_features else args.features,
         "dimensionality": args.dimensionality,
         "num_individuals": args.population_size,
-        "monitor": Monitor(args),
-        "seeded_initial": get_seeded(args)
+        "monitor": Monitor(args)
     }
+
+    d["seeded_initial"] = get_seeder(args, d["evaluator"])
+
+    return d
 
 
 def get_dimensionality(args):
@@ -70,18 +74,3 @@ def get_dimensionality(args):
     geno_cols = np.load(args.geno).shape[1]
 
     return geno_cols
-
-
-def get_seeded(args):
-    """
-    Get the seeded population from the designated file.
-    Designated file should be a json file.
-    :param args: object, argparse.Namespace
-    :return: None | list
-    """
-    out = None
-    if args.seed_population is not None and os.path.isfile(args.seed_population):
-        with open(args.seed_population, "r") as f:
-            out = pickle.load(f)
-
-    return out
