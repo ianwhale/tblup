@@ -237,3 +237,4 @@ schedule.sh
 *.egg*
 data/
 results/
+*.ipynb_checkpoints/
