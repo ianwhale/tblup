@@ -47,4 +47,4 @@ parser.add_argument("-cr", "--crossover_rate", type=float, default=0.8, help="pr
 parser.add_argument("-mi", "--mutation_intensity", type=float, default=0.5, help="mutation intensity")
 parser.add_argument("--seeder", default=None, help="seeder to use, available types: half-half, one-elite")
 parser.add_argument("--seeder_metric", default="p_value", help="the metric the seeder will use to filter the data "
-                                                          "available types: p_value")
+                                                               "available types: p_value")

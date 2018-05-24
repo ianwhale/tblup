@@ -203,7 +203,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param validation_indices: list, list of ints corresponding to which samples to use for validation.
         :return: float, prediction accuracy.
         """
-        if self.n_columns > self.n_samples:
+        if len(indices) > self.n_samples:
             # Do GBLUP. The GRM will be more efficient since we have more columns than samples.
             return self.gblup(indices, train_indices, validation_indices)
 
@@ -265,7 +265,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :return: (list, list), tuple of list of ints, (training, validation) indices.
         """
         n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
-        return self.training_indices[n:], self.training_indices[:n]
+        return self.training_indices[:n], self.training_indices[n:]
 
     def __call__(self, genome, generation):
         """
@@ -329,11 +329,13 @@ class BlupParallelEvaluator(ParallelEvaluator):
         results = []
         for genome in to_evaluate:
             results.append(
-                self.pool.apply_async(self, (genome, generation))
+                self(genome, generation)
+                # self.pool.apply_async(self, (genome, generation))
             )
 
         for i, idx in enumerate(indices):
-            population[idx].fitness = results[i].get()
+            population[idx].fitness = results[i]
+            # population[idx].fitness = results[i].get()
             self.archive[frozenset(to_evaluate[i])] = population[idx].fitness
 
         return population
