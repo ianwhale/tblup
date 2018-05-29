@@ -161,12 +161,12 @@ class BlupParallelEvaluator(ParallelEvaluator):
     TRAIN_TEST_SPLIT = 0.8   # 80% of the data will be training, 20% will be testing.
     TRAIN_VALID_SPLIT = 0.8  # Of the training data, 20% will be validation.
 
-    def __init__(self, data_path, labels_path, r, n_procs=-1, splitter=None):
+    def __init__(self, data_path, labels_path, h2, n_procs=-1, splitter=None):
         """
         Constructor.
         :param data_path: string, path to the training data.
         :param labels_path: string, path to the labels for the training data.
-        :param r: float, regularization parameter.
+        :param h2: float, trait heritability.
         :param n_procs: int, number of processes to use.
         :param splitter: callable | None, a special function to split the data into training and testing (optional).
             - If not provided, we just shuffle and use a specified split.
@@ -177,7 +177,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         # Indexing works as the hashed frozenset of the list => fitness.
         self.archive = {}
 
-        self.r = r  # Regularization parameter.
+        self.h2 = h2  # Regularization parameter.
 
         # Build training and testing indices.
         data = np.load(data_path)
@@ -222,9 +222,11 @@ class BlupParallelEvaluator(ParallelEvaluator):
         """
         G = make_grm(self.data[:, indices])
 
+        r = (1 - self.h2) / self.h2
+
         # Inverse the matrix using only the desired training samples.
         G_inv = G[train_indices, :][:, train_indices]
-        G_inv.flat[:: G_inv.shape[0] + 1] += self.r  # Add regularization term to the diagonal of G.
+        G_inv.flat[:: G_inv.shape[0] + 1] += r  # Add regularization term to the diagonal of G.
         G_inv = np.linalg.inv(G_inv)
 
         prediction = np.matmul(np.matmul(G[:, train_indices], G_inv), self.labels[train_indices])
@@ -248,12 +250,12 @@ class BlupParallelEvaluator(ParallelEvaluator):
 
         p = np.mean(X_train, axis=0) / 2
         d = 2 * np.sum(p * (1 - p))
-        l = (1 - self.r) / (self.r / d)
+        r = (1 - self.h2) / (self.h2 / d)
 
         X_train -= (2 * p)
         X_valid -= (2 * p)
 
-        clf = Ridge(alpha=l)
+        clf = Ridge(alpha=r)
         clf.fit(X_train, y_train)
 
         return abs(pearsonr(clf.predict(X_valid), y_valid)[0])
@@ -329,13 +331,11 @@ class BlupParallelEvaluator(ParallelEvaluator):
         results = []
         for genome in to_evaluate:
             results.append(
-                self(genome, generation)
-                # self.pool.apply_async(self, (genome, generation))
+                self.pool.apply_async(self, (genome, generation))
             )
 
         for i, idx in enumerate(indices):
-            population[idx].fitness = results[i]
-            # population[idx].fitness = results[i].get()
+            population[idx].fitness = results[i].get()
             self.archive[frozenset(to_evaluate[i])] = population[idx].fitness
 
         return population
@@ -376,12 +376,12 @@ class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):
 
     Only overrides the constructor and train_validation_indices.
     """
-    def __init__(self, data_path, labels_path, r, n_procs=-1, n_folds=5, splitter=None):
+    def __init__(self, data_path, labels_path, h2, n_procs=-1, n_folds=5, splitter=None):
         """
         See parent doc.
         :param n_folds: int, number of cross validation folds.
         """
-        super(InterGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs,
+        super(InterGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
                                                             splitter=splitter)
 
         self.n_folds = n_folds
@@ -434,11 +434,11 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
 
     Only overrides the call method.
     """
-    def __init__(self, data_path, labels_path, r, n_procs=-1, n_folds=5, splitter=None):
+    def __init__(self, data_path, labels_path, h2, n_procs=-1, n_folds=5, splitter=None):
         """
         See parent doc.
         """
-        super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, r, n_procs=n_procs, n_folds=n_folds,
+        super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs, n_folds=n_folds,
                                                             splitter=splitter)
 
     def __call__(self, genome, generation):
