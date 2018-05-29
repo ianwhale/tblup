@@ -48,7 +48,7 @@ class Population:
         # If we need to increase the individual length, we also must reevaluate.
         if self.scheduler.do_step(self, self.generation):
             self.scheduler.step(self)
-            self.evaluator.evaluate(self)
+            self.evaluator.evaluate(self, self.generation)
 
         self.monitor.report(self)
         self.generation += 1
