@@ -238,3 +238,5 @@ schedule.sh
 data/
 results/
 *.ipynb_checkpoints/
+plotting/
+comparisons/

@@ -64,8 +64,7 @@ def half_half_seeder(args, evaluator):
         genome = set(random.sample(best_features, n // 2))  # Get n / 2 random indices from the filtered results.
 
         while len(genome) < n:
-            rand_features = random.sample(range(args.dimensionality), n // 2)
-            genome.update(rand_features)
+            genome.add(random.randrange(0, args.dimensionality))
 
         yield list(genome)
 
