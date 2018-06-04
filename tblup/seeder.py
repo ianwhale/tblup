@@ -41,7 +41,7 @@ def get_top_n(args, evaluator, n=None):
         # Wrap the f_regression metric to get p-values only.
         def wrap(X, y):
             _, p_vals = f_regression(X, y)
-            return p_vals
+            return -1 * p_vals  # Lower p-value is better so we multiply by -1.
 
         metric = wrap
 
