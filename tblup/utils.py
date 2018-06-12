@@ -78,3 +78,19 @@ def get_dimensionality(args):
     geno_cols = np.load(args.geno).shape[1]
 
     return geno_cols
+
+
+def id_gen():
+    """
+    Unique id generator.
+    :yield int:
+    """
+    i = 0
+    while True:
+        yield i
+        i = i + 1
+
+
+# Hacky way to get unique ids across the whole program.
+# Individuals aren't created in parallel, if they are this won't work.
+uid = id_gen()

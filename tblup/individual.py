@@ -1,5 +1,8 @@
 import abc
 import random
+from tblup import uid
+from copy import deepcopy
+
 
 class Individual(abc.ABC):
     """
@@ -11,8 +14,26 @@ class Individual(abc.ABC):
         :param length: int, how long an individual is.
         :param dimensionality: int, the dimensionality of the problem.
         """
+        self.uid = next(uid)  # Get next globally unique id.
         self.length = length
         self.dimensionality = dimensionality
+
+    def __deepcopy__(self, memo):
+        """
+        Deepcopy override. Need to update uid.
+        Nothing should need to be actually deep copied, if so, override this and use an upcall in a derived class.
+        :param memo: dict
+        :return: tblup.Individual.
+        """
+        # Do __new__ to avoid calling constructor.
+        cls = self.__class__
+        cp = cls.__new__(cls)
+        cp.__dict__.update(self.__dict__)
+
+        # Get a new uid.
+        cp.uid = next(uid)
+
+        return cp
 
 
 class IndexIndividual(Individual):
@@ -35,6 +56,16 @@ class IndexIndividual(Individual):
             self.genome = random.sample(range(dimensionality), self.length)
 
         self.fitness = float("-inf")
+
+    def __deepcopy__(self, memo):
+        """
+        Deepcopy override. Upcalls parent to get new uid then deepcopies the genome.
+        :param memo: dict
+        :return: tblup.IndexIndividual
+        """
+        cp = super(IndexIndividual, self).__deepcopy__(memo)
+        cp.genome = deepcopy(self.genome)
+        return cp
 
     def __len__(self):
         return len(self.genome)
