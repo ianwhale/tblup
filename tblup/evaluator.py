@@ -362,7 +362,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         """
         Same as __call__, but using the testing indices.
         :param genome: list, list of indexes into data matrix.
-        :return: float, testing accuracy feature subset..
+        :return: float, testing accuracy feature subset.
         """
         return self.blup(genome, self.training_indices, self.testing_indices)
 

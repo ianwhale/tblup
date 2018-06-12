@@ -102,7 +102,7 @@ class StepwiseScheduler(FeatureScheduler):
         for i in range(len(population)):
             # Get two unique indexes from the top cut of the population.
             idx_1 = random.randrange(0, cut)
-            idx_2 = exclusive_randrange(0, cut, idx_1)
+            idx_2 = exclusive_randrange(0, cut, [idx_1])
 
             first = as_set[idx_1]
             second = as_set[idx_2]

@@ -20,14 +20,18 @@ def make_grm(geno):
 
 def exclusive_randrange(begin, end, exclude):
     """
-    Get a random integer in a range [begin, end), excluding a particular number.
+    Get a random integer in a range [begin, end), excluding a particular list of numbers.
     :param begin: int, beginning of range.
     :param end: int, end of range.
-    :param exclude: int, exclude this from the range.
-    :return: int, random number != exclude
+    :param exclude: list, exclude this from the range.
+    :return: int, random number not in exclude.
     """
     r = random.randrange(begin, end)
-    while r == exclude:
+    exclude = set(exclude)
+
+    assert len(exclude) < (end - begin), "Exclusion range larger than random range."
+
+    while r in exclude:
         r = random.randrange(begin, end)
     return r
 

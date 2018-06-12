@@ -42,6 +42,44 @@ class DERandOneEvolver(Evolver):
         self.crossover_rate = crossover_rate
         self.mutation_intensity = mutation_intensity
 
+    @staticmethod
+    def derandone(population, mi, cr, dimensionality):
+        next_pop = []
+
+        pop_len = len(population)
+
+        for i in range(pop_len):
+            parent = population[i]
+
+            # Get mutators.
+            a = exclusive_randrange(0, pop_len, [i])
+            b = exclusive_randrange(0, pop_len, [i, a])
+            c = exclusive_randrange(0, pop_len, [i, a, b])
+
+            a, b, c = population[a], population[b], population[c]
+
+            # Create candidate from mutators and parent.
+            candidate = deepcopy(parent)
+
+            fixed = random.randrange(0, len(parent))
+
+            for j in range(len(parent)):
+                if j == fixed or random.random() < cr:
+                    mutant = round(a[j] + mi * (b[j] - c[j]))  # Round for integer solutions only.
+
+                    # Bound solutions.
+                    if mutant >= dimensionality:
+                        mutant = dimensionality - 1
+
+                    elif mutant < 0:
+                        mutant = 0
+
+                    candidate[j] = mutant
+
+            next_pop.append(candidate)
+
+        return next_pop
+
     def evolve(self, population):
         """
         Create the next population.
@@ -54,38 +92,12 @@ class DERandOneEvolver(Evolver):
         else:
             mi = self.mutation_intensity
 
-        next_pop = []
+        return self.derandone(population, mi, self.crossover_rate, self.dimensionality)
 
-        pop_len = len(population)
 
-        for i in range(pop_len):
-            parent = population[i]
-
-            # Get mutators.
-            a, b, c = exclusive_randrange(0, pop_len, i), \
-                exclusive_randrange(0, pop_len, i), \
-                exclusive_randrange(0, pop_len, i)
-
-            a, b, c = population[a], population[b], population[c]
-
-            # Create candidate from mutators and parent.
-            candidate = deepcopy(parent)
-
-            fixed = random.randrange(0, len(parent))
-
-            for j in range(len(parent)):
-                if j == fixed or random.random() < self.crossover_rate:
-                    mutant = round(a[j] + mi * (b[j] - c[j]))  # Round for integer solutions only.
-
-                    # Bound solutions.
-                    if mutant >= self.dimensionality:
-                        mutant = self.dimensionality - 1
-
-                    elif mutant < 0:
-                        mutant = 0
-
-                    candidate[j] = mutant
-
-            next_pop.append(candidate)
-
-        return next_pop
+class SaDE(Evolver):
+    """
+    Self-adaptive Differential Evolution.
+    The evolution scheme described by formulas (4) and (5) in:
+    """
+    pass
