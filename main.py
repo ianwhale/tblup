@@ -26,8 +26,6 @@ def main():
         for gen in range(1, args.generations + 1):
             population.do_generation()
 
-        population.monitor.save_archive(population)
-
         results = evaluator.evaluate_testing(population)
         population.monitor.write(
             ["Testing"] + population.monitor.get_row_summary(results) + ["Final"]
