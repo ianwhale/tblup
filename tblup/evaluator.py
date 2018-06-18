@@ -305,15 +305,11 @@ class BlupParallelEvaluator(ParallelEvaluator):
         """
         to_evaluate = []
         indices = []
+
         for i, indv in enumerate(population):
-            unique = frozenset(indv.genome)
-
-            if unique in self.archive:
-                indv.fitness = self.archive[unique]
-
-            else:
+            if indv.uid not in self.archive:
                 indices.append(i)
-                to_evaluate.append(list(unique))
+                to_evaluate.append(indv.genome)
 
         return to_evaluate, indices
 
