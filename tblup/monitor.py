@@ -80,8 +80,10 @@ class Monitor:
         option_list.append("f" + str(args.features))
         option_list.append("n" + str(args.population_size))
         option_list.append("g" + str(args.generations))
-        option_list.append("cr" + str(args.crossover_rate).replace(".", ""))
-        option_list.append("mi" + str(args.mutation_intensity).replace(".", ""))
+
+        if args.de_strategy != "sade":
+            option_list.append("cr" + str(args.crossover_rate).replace(".", ""))
+            option_list.append("mi" + str(args.mutation_intensity).replace(".", ""))
 
         return "_".join(option_list)
 
@@ -111,6 +113,8 @@ class Monitor:
         """
         with open(self.archive_file, "wb") as f:
             pickle.dump(population.evaluator.archive, f)
+
+        # TODO: think of a better way to do archiving.
 
     def gather_stats(self, population):
         """

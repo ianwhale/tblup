@@ -92,5 +92,5 @@ def id_gen():
 
 
 # Hacky way to get unique ids across the whole program.
-# Individuals aren't created in parallel, if they are this won't work.
+# Individuals aren't created in parallel, if they are, this won't work.
 uid = id_gen()

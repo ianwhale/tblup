@@ -332,7 +332,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
 
         for i, idx in enumerate(indices):
             population[idx].fitness = results[i].get()
-            self.archive[frozenset(to_evaluate[i])] = population[idx].fitness
+            self.archive[population[idx].uid] = population[idx].fitness
 
         return population
 
