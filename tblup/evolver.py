@@ -83,13 +83,8 @@ class DERandOneEvolver(Evolver):
                 mutant = round(a[j] + mi * (b[j] - c[j]))  # Round for integer solutions only.
 
                 # Bound solutions.
-                if mutant >= dimensionality:
-                    mutant = dimensionality - 1
-
-                elif mutant < 0:
-                    mutant = 0
-
-                candidate[j] = mutant
+                mutant = np.clip(mutant, 0, dimensionality - 1)
+                candidate[j] = int(mutant)
 
         return candidate
 
@@ -164,13 +159,8 @@ class DECurrentToBestTwoEvolver(Evolver):
                 mutant = round(candidate[j] + mi * (best[j] - candidate[j]) + mi * (a[j] - b[j]))
 
                 # Bound solutions.
-                if mutant >= dimensionality:
-                    mutant = dimensionality - 1
-
-                elif mutant < 0:
-                    mutant = 0
-
-                candidate[j] = mutant
+                mutant = np.clip(mutant, 0, dimensionality - 1)
+                candidate[j] = int(mutant)
 
         return candidate
 
@@ -234,7 +224,7 @@ class SaDE(Evolver):
 
     def should_regenerate_crs(self, generation):
         """Should we regenerate the crossover rates?"""
-        return generation % self.regenerate_crs_interval == 0
+        return len(self.crs) == 0 or generation % self.regenerate_crs_interval == 0
 
     def regenerate_crs(self, population):
         """
