@@ -194,6 +194,10 @@ class BlupParallelEvaluator(ParallelEvaluator):
             self.training_indices = indices[:n]
             self.testing_indices = indices[n:]
 
+            n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
+            self.validation_indices = self.training_indices[n:]
+            self.training_indices = self.training_indices[:n]
+
     def blup(self, indices, train_indices, validation_indices):
         """
         Do BLUP on the provided data. Assumes self.data is SNP data in {0, 1, 2} format.
@@ -266,8 +270,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param generation: int, current generation. Not used here, used in subclasses.
         :return: (list, list), tuple of list of ints, (training, validation) indices.
         """
-        n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
-        return self.training_indices[:n], self.training_indices[n:]
+        return self.training_indices, self.validation_indices
 
     def __call__(self, genome, generation):
         """
@@ -293,9 +296,6 @@ class BlupParallelEvaluator(ParallelEvaluator):
                 safe_dict[k] = v
 
         return safe_dict
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        super(BlupParallelEvaluator, self).__exit__(exc_type, exc_val, exc_tb)
 
     def genomes_to_evaluate(self, population):
         """
@@ -383,6 +383,19 @@ class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):
         self.n_folds = n_folds
         self.fold_indices = self.make_fold_indices(self.training_indices, self.n_folds)
 
+    def __getstate__(self):
+        """
+        Magic method called when an object is pickled. Normally returns self.__dict__.
+        This happens when a copy of self gets sent to a new process in the __call__ method.
+        We don't want to pickle the fold_indices object since it will likely be very large.
+        :return: dict
+        """
+        safe_dict = super().__getstate__()
+
+        del safe_dict['fold_indices']
+
+        return safe_dict
+
     @staticmethod
     def make_fold_indices(indices, n_folds):
         """
@@ -403,7 +416,16 @@ class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):
             fold_indices.append(indices[start:stop])
             current = stop
 
-        return fold_indices
+        # Prebuild the index pairs so we don't have to at run time.
+        prebuilt = [[[], []] for _ in range(n_folds)]
+        for i in range(n_folds):
+            prebuilt[i][1] = fold_indices[i]
+
+            for j in range(n_folds):
+                if j != i:
+                    prebuilt[i][0] += fold_indices[j]
+
+        return prebuilt
 
     def train_validation_indices(self, generation):
         """
@@ -411,15 +433,7 @@ class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):
         :param generation: int, current generation.
         :return: (list, list), tuple of list of ints, (training, validation) indices.
         """
-        train = []
-
-        for i in range(self.n_folds):
-            if i == generation % self.n_folds:
-                continue
-
-            train += self.fold_indices[i]
-
-        return train, self.fold_indices[generation % self.n_folds]
+        return self.fold_indices[generation % self.n_folds]
 
 
 class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
@@ -434,8 +448,8 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
         """
         See parent doc.
         """
-        super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs, n_folds=n_folds,
-                                                            splitter=splitter)
+        super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
+                                                            n_folds=n_folds, splitter=splitter)
 
     def __call__(self, genome, generation):
         """
@@ -475,7 +489,7 @@ def pca_splitter(data, split=0.8, outliers=False):
     dists = dists[:, 0] + dists[:, 1]
 
     idx_dist = [(i, dists[i]) for i in range(len(dists))]
-    idx_dist.sort(key=lambda x: x[1], reverse=outliers)
+    idx_dist.sort(key=lambda tup: tup[1], reverse=outliers)
 
     idxs = [x[0] for x in idx_dist]
     n = int(len(idxs) * split)

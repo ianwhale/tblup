@@ -335,3 +335,15 @@ class SaDE(Evolver):
             next_pop.append(indv)
 
         return next_pop
+
+
+class MDE_pBX(Evolver):
+    """
+    MDE_pBX strategy.
+    Described with detail in:
+    Islam, Sk. M., Das, S., Ghosh, S. Roy, S., and Suganthan P. N. (2012) An Adaptive Differential Evolution Algorithm
+    With Novel Mutation and Crossover Strategies for Global Numerical Optimization. IEEE Transactions on Systems, Man,
+    and Cybernetics—Part B: Cybernetics.
+    """
+    def evolve(self, population):
+        pass
