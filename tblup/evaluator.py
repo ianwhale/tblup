@@ -383,19 +383,6 @@ class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):
         self.n_folds = n_folds
         self.fold_indices = self.make_fold_indices(self.training_indices, self.n_folds)
 
-    def __getstate__(self):
-        """
-        Magic method called when an object is pickled. Normally returns self.__dict__.
-        This happens when a copy of self gets sent to a new process in the __call__ method.
-        We don't want to pickle the fold_indices object since it will likely be very large.
-        :return: dict
-        """
-        safe_dict = super().__getstate__()
-
-        del safe_dict['fold_indices']
-
-        return safe_dict
-
     @staticmethod
     def make_fold_indices(indices, n_folds):
         """
