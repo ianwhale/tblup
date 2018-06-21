@@ -1,8 +1,10 @@
 import abc
 import random
 import numpy as np
+from math import ceil
 from copy import deepcopy
 from numpy.random import normal
+from scipy.stats import cauchy
 from tblup import exclusive_randrange
 
 
@@ -15,13 +17,16 @@ def get_evolver(args):
     if args.de_strategy == "de_rand_1":
         return DERandOneEvolver(args.dimensionality, args.crossover_rate, args.mutation_intensity)
 
-    if args.de_strategy == "de_currenttobest_2":
-        return DECurrentToBestTwoEvolver(args.dimensionality, args.crossover_rate, args.mutation_intensity)
+    if args.de_strategy == "de_currenttobest_1":
+        return DECurrentToBestOneEvolver(args.dimensionality, args.crossover_rate, args.mutation_intensity)
 
     if args.de_strategy == "sade":
         return SaDE(args.dimensionality)
 
-    raise NotImplementedError("Evolver with config description {} is not implemented.".format(args.de_strategy))
+    if args.de_strategy == "mde_pbx":
+        return MDE_pBX(args.dimensionality, args.generations)
+
+    raise NotImplementedError("Evolver with config option {} is not implemented.".format(args.de_strategy))
 
 
 class Evolver(abc.ABC):
@@ -107,9 +112,9 @@ class DERandOneEvolver(Evolver):
         return next_pop
 
 
-class DECurrentToBestTwoEvolver(Evolver):
+class DECurrentToBestOneEvolver(Evolver):
     """
-    DE/Current to best/2 strategy.
+    DE/Current to best/1 strategy.
     Mutant vector V_i described by, for random vectors X_a and X_b, and target (parent) X_i,
         V_i = X_i + F * (X_{best} - X_i)
     Where X_{best} is the current best
@@ -125,7 +130,7 @@ class DECurrentToBestTwoEvolver(Evolver):
         self.mutation_intensity = mutation_intensity
 
     @staticmethod
-    def de_currenttobest_two(population, mi, cr, dimensionality, parent_idx, best=None):
+    def de_currenttobest_one(population, mi, cr, dimensionality, parent_idx, best=None):
         """
         Actual DE step.
         :param population: tblup.Population, current population.
@@ -180,7 +185,7 @@ class DECurrentToBestTwoEvolver(Evolver):
 
         best = max(population, key=lambda individual: individual.fitness)
         for i in range(len(population)):
-            next_pop.append(self.de_currenttobest_two(population,
+            next_pop.append(self.de_currenttobest_one(population,
                                                       mi,
                                                       self.crossover_rate,
                                                       self.dimensionality,
@@ -190,7 +195,132 @@ class DECurrentToBestTwoEvolver(Evolver):
         return next_pop
 
 
-class SaDE(Evolver):
+class DECurrentToGrBestOneEvolver(Evolver):
+    """
+    DE/current-to-gr_best/1 strategy.
+    Similar to DE/current-to-best/1, but uses a a random choice among the q% best vectors.
+    """
+    def __init__(self, dimensionality, crossover_rate, mutation_factor, q=0.15):
+        """
+        Constructor.
+        :param dimensionality: int, dimensionality of the problem.
+        :param crossover_rate: float, rate of crossover (Cr).
+        :param mutation_factor: float, mutation factor (F).
+        """
+        self.dimensionality = dimensionality
+        self.crossover_rate = crossover_rate
+        self.mutation_factor = mutation_factor
+        self.q = q
+
+    @staticmethod
+    def get_q_best(population, q):
+        """
+        Get the indices of the q best individuals.
+        :param population: tblup.Population, current population.
+        :param q: float, top q percent of individuals will be returned.
+        :return: list, list of tblup.Individuals.
+        """
+        assert 0 < q <= 1, "q should be in (0, 1]."
+
+        n = int(len(population) * q)
+        return np.argsort([indiv.fitness for indiv in population])[-n:]
+
+    def evolve(self, population):
+        next_pop = []
+
+        qbest = self.get_q_best(population, self.q)
+
+        for i in range(len(population)):
+            best = population[np.asscalar(np.random.choice(qbest, 1))]
+
+            next_pop.append(DECurrentToBestOneEvolver.de_currenttobest_one(population,
+                            self.crossover_rate,
+                            self.mutation_factor,
+                            self.dimensionality,
+                            i,
+                            best=best))
+
+        return next_pop
+
+
+class AdaptiveEvolver(Evolver):
+    """
+    Base class for adaptive evolver, does book keeping for "successful" parameters. In other words, parameters that
+    produce candidate vectors that enter the next population.
+    """
+    def __init__(self):
+        self.successful_fs = []  # Successful mutation factor values.
+        self.successful_crs = []  # Successful crossover rate values.
+        self.previous_pop_uids = None  # Previous population's unique ids.
+
+        self.crs = []  # Crossover rates for the current generation.
+        self.fs = []  # Mutation factors for the current generation.
+
+    def evolve(self, population):
+        """
+        Create the next population. See original paper for more details not described with inline comments.
+        :param population: tblup.Population
+        """
+        if self.previous_pop_uids is None:  # On the initial generation, set the uids before logic checks.
+            self.previous_pop_uids = [individual.uid for individual in population]
+
+        # Count the number of success and failures that each method had.
+        self.count_outcomes(population)
+
+        if self.should_regenerate_crs(population):
+            self.regenerate_crs(population)
+
+        if self.should_regenerate_fs(population):
+            self.regenerate_fs(population)
+
+        self.previous_pop_uids = [individual.uid for individual in population]
+
+    def count_outcomes(self, population):
+        """
+        Count the successful mutation factors and crossover rates.
+        :param population: tblup.Population, current population.
+        """
+        # We know the UIDs of the previous population, and want to know which strategies produced new individuals.
+        for i, [previous_uid, current_individual] in enumerate(zip(self.previous_pop_uids, population)):
+            if previous_uid != current_individual.uid:
+                # A successful parameter, record it as such.
+                self.successful_crs.append(self.crs[i])
+                self.successful_fs.append(self.fs[i])
+
+    @abc.abstractmethod
+    def should_regenerate_crs(self, population):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def generate_cr(self):
+        raise NotImplementedError()
+
+    def regenerate_crs(self, population):
+        """
+        Create new crossover rates.
+        :param population: tblup.Population, current population.
+        :return: list, list of floats
+        """
+        self.crs = [self.generate_cr() for _ in range(len(population))]
+
+    @abc.abstractmethod
+    def should_regenerate_fs(self, population):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def generate_f(self):
+        raise NotImplementedError()
+
+    def regenerate_fs(self, population):
+        """
+        Create new mutation factors.
+        :param population: tblup.Population, current population.
+        :return: list, list of floats
+        """
+        self.fs = [self.generate_f() for _ in range(len(population))]
+
+
+class SaDE(AdaptiveEvolver):
     """
     Self-adaptive Differential Evolution.
     Described with detail in:
@@ -198,8 +328,8 @@ class SaDE(Evolver):
     2005 IEEE Congress on Evolutionary Computation.
     """
 
-    mi_m = 0.5  # Constant mean for mutation intensity normal distribution.
-    mi_std = 0.3  # Constant standard deviation for mutation intensity normal distribution.
+    f_m = 0.5  # Constant mean for mutation factor normal distribution.
+    f_std = 0.3  # Constant standard deviation for mutation factor normal distribution.
     cr_std = 0.1  # Constant standard deviation for crossover normal distribution.
     recalculate_mean_interval = 25  # Recalculate cr_m at generations that are multiples of this constant.
     regenerate_crs_interval = 5  # Regenerate new crossover rates at generations that are multiples of this constant.
@@ -210,14 +340,13 @@ class SaDE(Evolver):
         Constructor.
         :param dimensionality: int, dimensionality of the problem.
         """
+        super(SaDE, self).__init__()
+        
         self.dimensionality = dimensionality
-        self.previous_population_uids = None  # The previous population's globally unique ids.
         self.cr_m = 0.5  # Initial crossover rate mean.
         self.p = 0.5  # Initial probability of using strategy 1, else use strategy 2.
-        self.crs = []
-        self.successful_crs = {}  # Crossover rates that created an individual that entered the population.
 
-        self.strategy_one_indices = None  # Indices in the population that generated a candidate with strategy 1.
+        self.strategy_one_indices = set()  # Indices in the population that generated a candidate with strategy 1.
 
         # Number of successes/failures method 1 or 2 has.
         self.ns_1, self.ns_2, self.nf_1, self.nf_2 = 0, 0, 0, 0
@@ -225,14 +354,6 @@ class SaDE(Evolver):
     def should_regenerate_crs(self, generation):
         """Should we regenerate the crossover rates?"""
         return len(self.crs) == 0 or generation % self.regenerate_crs_interval == 0
-
-    def regenerate_crs(self, population):
-        """
-        Create new crossover rates.
-        :param population: tblup.Population, current population.
-        :return: list, list of floats
-        """
-        self.crs = [self.generate_cr() for _ in range(len(population))]
 
     def should_recalculate_cr_m(self, generation):
         """Should we recalculate the mean of the crossover rates?"""
@@ -243,16 +364,19 @@ class SaDE(Evolver):
         if len(self.successful_crs) == 0:
             return
 
-        self.cr_m = np.mean(list(self.successful_crs.keys()))
-        self.successful_crs = {}  # Reset the record of successful crossover values.
+        self.cr_m = np.mean(self.successful_crs)
 
-    def generate_mi(self):
+    def generate_f(self):
         """Generate a mutation intensity (F), where F follows N(mi_m, mi_std), and F in [0, 2]."""
-        return np.clip(normal(self.mi_m, self.mi_std), 0, 2)
+        return np.clip(normal(self.f_m, self.f_std), 0, 2)
 
     def generate_cr(self):
         """Generate a crossover rate, where CR follows N(cr_m, cr_std), and is in [0, 1]."""
         return np.clip(normal(self.cr_m, self.cr_std), 0, 1)
+
+    def should_regenerate_fs(self, population):
+        """SaDE does not generate an F value for each individual, only once per generation."""
+        return False
 
     def recalculate_p(self, population):
         """Recalculate the probability of using strategy 1 if needed."""
@@ -260,36 +384,33 @@ class SaDE(Evolver):
             return  # Do not recalculate.
 
         self.p = (self.ns_1 * (self.ns_2 + self.nf_2)) \
-                 / (self.ns_2 * (self.ns_1 + self.nf_1) + self.ns_1 * (self.ns_2 + self.nf_2))
+            / (self.ns_2 * (self.ns_1 + self.nf_1) + self.ns_1 * (self.ns_2 + self.nf_2))
 
     def count_outcomes(self, population):
         """
+        Override parent function.
         Count the number of successes and failures each strategy had.
         :param population: tblup.Population, current population.
         """
-        if self.strategy_one_indices is None:
-            return  # Do nothing, we are in an initialization state.
+        super(SaDE, self).count_outcomes(population)
 
         if population.generation == self.initial_learning_period:
             # The learning period is over, we need to reset the counters.
             self.ns_1, self.ns_2, self.nf_1, self.nf_2 = 0, 0, 0, 0
 
         # We know the UIDs of the previous population, and want to know which strategies produced new individuals.
-        for i, [previous_uid, current_individual] in enumerate(zip(self.previous_population_uids, population)):
+        for i, [previous_uid, current_individual] in enumerate(zip(self.previous_pop_uids, population)):
             if previous_uid == current_individual.uid:
                 # This is a "failure" case, the strategy used did not create a new individual.
                 if i in self.strategy_one_indices:
                     self.nf_1 += 1
-
                 else:
                     self.nf_2 += 1
 
             else:
                 # This is a "success" case, the strategy did create a new individual.
-                self.successful_crs[self.crs[i]] = True
                 if i in self.strategy_one_indices:
                     self.ns_1 += 1
-
                 else:
                     self.ns_2 += 1
 
@@ -299,23 +420,15 @@ class SaDE(Evolver):
         :param population: tblup.Population
         :return: list, list of individuals.
         """
-        if self.previous_population_uids is None:
-            self.previous_population_uids = [individual.uid for individual in population]
-
-        # Count the number of success and failures that each method had.
-        self.count_outcomes(population)
-        self.recalculate_p(population)
-
         if self.should_recalculate_cr_m(population.generation):
             self.recalculate_cr_m()
 
-        if self.should_regenerate_crs(population.generation):
-            self.regenerate_crs(population)
+        super(SaDE, self).evolve(population)
 
-        self.previous_population_uids = [individual.uid for individual in population]
+        self.recalculate_p(population)
 
         # Same mutation intensity (a.k.a. F) used for each individual.
-        mi = self.generate_mi()
+        f = self.generate_f()
 
         next_pop = []
         self.strategy_one_indices = set()
@@ -325,11 +438,11 @@ class SaDE(Evolver):
             if random.random() < self.p:
                 # Do strategy 1, i.e. DE/rand/1
                 self.strategy_one_indices.add(i)
-                indv = DERandOneEvolver.de_rand_one(population, mi, self.crs[i], self.dimensionality, i)
+                indv = DERandOneEvolver.de_rand_one(population, f, self.crs[i], self.dimensionality, i)
 
             else:
                 # Do strategy 2, i.e. DE/current to best/2
-                indv = DECurrentToBestTwoEvolver.de_currenttobest_two(population, mi, self.crs[i],
+                indv = DECurrentToBestOneEvolver.de_currenttobest_one(population, f, self.crs[i],
                                                                       self.dimensionality, i, best=best)
 
             next_pop.append(indv)
@@ -337,7 +450,7 @@ class SaDE(Evolver):
         return next_pop
 
 
-class MDE_pBX(Evolver):
+class MDE_pBX(AdaptiveEvolver):
     """
     MDE_pBX strategy.
     Described with detail in:
@@ -345,5 +458,125 @@ class MDE_pBX(Evolver):
     With Novel Mutation and Crossover Strategies for Global Numerical Optimization. IEEE Transactions on Systems, Man,
     and Cybernetics—Part B: Cybernetics.
     """
+
+    f_scale = 0.1  # Scale factor for mutation factor cauchy distribution.
+    cr_std = 0.1  # Standard deviation for crossover rate normal distribution.
+    group_q = 0.15  # q parameter for the q best vectors used in the current-to-gr_best/1 scheme
+
+    def __init__(self, dimensionality, generations):
+        """
+        Constructor.
+        :param dimensionality: int, dimensionality of the problem.
+        :param generations: int, maximum number of generations.
+        """
+        super(MDE_pBX, self).__init__()
+
+        self.dimensionality = dimensionality
+        self.g_max = generations
+
+        self.cr_m = 0.6  # Initial crossover mean.
+        self.f_m = 0.5  # Initial mutation factor mean.
+
+        self.p = None
+
+    def should_regenerate_fs(self, population):
+        """Always regenerate mutation values."""
+        return True
+
+    def should_regenerate_crs(self, population):
+        """Always regenerate crossover rates."""
+        return True
+
+    def generate_cr(self):
+        """Generate crossover rate from normal distribution. Regenerate until cr in [0, 1]."""
+        cr = normal(self.cr_m, self.cr_std)
+        while cr < 0 or cr > 1:
+            cr = normal(self.cr_m, self.cr_std)
+        return cr
+
+    def generate_f(self):
+        """Generate mutation factor from Cauchy distribution. Regenerate until f in [0, 1]."""
+        f = cauchy.rvs(loc=self.f_m, scale=self.f_scale)
+        while f < 0 or f > 1:
+            f = cauchy.rvs(loc=self.f_m, scale=self.f_scale)
+        return f
+
+    def recalculate_cr_m(self):
+        """Recalculate cr_m with formula (12a) in Islam et al."""
+        if len(self.successful_crs) == 0:
+            return
+
+        w_cr = self.get_weight_factor(0.9, 0.1)
+        self.cr_m = w_cr * self.cr_m + (1 - w_cr) * self.mean_pow(self.successful_crs)
+        self.successful_crs = []  # Reset record of successful crossover rates.
+
+    def recalculate_f_m(self):
+        """Recalculate f_m with formula (9a) in Islam et al."""
+        if len(self.successful_fs) == 0:
+            return
+
+        w_f = self.get_weight_factor(0.8, 0.2)
+        self.f_m = w_f * self.f_m + (1 - w_f) * self.mean_pow(self.successful_fs)
+        self.successful_fs = []  # Reset record of succesful mutation factors.
+
+    def recalculate_p(self, population):
+        """Recalculate p with formula (7) in Islam et al."""
+        self.p = ceil((len(population) / 2) * (1 - (population.generation / self.g_max)))
+
+    @staticmethod
+    def mean_pow(vals, n=1.5):
+        """
+        See formula (10) in Islam et al.
+        Mean_pow is defined here a little differently in the original paper. However since we know that all the values
+        in the sum will be positive (they are crossover rates or mutation factors) and n is positive, we can simplify.
+        :param vals: list, list of postive numbers.
+        :param n: float, parameter to the power mean.
+        :return:
+        """
+        assert n > 0, "n must be a positive number."
+
+        d = pow(len(vals), -n)
+        return sum(vals) / d
+
+    @staticmethod
+    def get_weight_factor(p, q):
+        """
+        Weight factor formula as described in the origial paper.
+        :param p: float, additive parameter.
+        :param q: float, multiplicative parameter.
+        :return: float, weight factor.
+        """
+        return p + q * random.random()
+
     def evolve(self, population):
-        pass
+        """
+        Create the next population. See original paper for more details not described with inline comments.
+        :param population: tblup.Population
+        :return: list, list of individuals.
+        """
+        self.recalculate_cr_m()
+        self.recalculate_f_m()
+        self.recalculate_p(population)
+
+        super(MDE_pBX, self).evolve(population)
+
+        sorted_indices = np.argsort([indiv.fitness for indiv in population])
+
+        q_best = sorted_indices[-int(len(population) * self.group_q):]
+        p_best = sorted_indices[-self.p:]
+
+        next_pop = []
+        for i in range(len(population)):
+            gr_choice = population[np.asscalar(np.random.choice(q_best, 1))]
+            parent_idx = np.asscalar(np.random.choice(p_best, 1))
+
+            indiv = DECurrentToBestOneEvolver.de_currenttobest_one(population,
+                                                                   self.fs[i],
+                                                                   self.crs[i],
+                                                                   self.dimensionality,
+                                                                   parent_idx,
+                                                                   gr_choice)
+
+            next_pop.append(indiv)
+
+        return next_pop
