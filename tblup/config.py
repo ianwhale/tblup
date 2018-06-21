@@ -1,5 +1,16 @@
 import argparse
 
+
+def boollike(v):
+    """See: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse"""
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 parser = argparse.ArgumentParser(description="TBLUP Python Implementation")
 
 #
@@ -17,11 +28,11 @@ parser.add_argument("--pheno", default="./data/pheno.npy",
                     help="training phenotype .npy file (m x 1 vector)")
 parser.add_argument("--splitter", default=None, help="a custom train/test split function, available types: "
                                                      "pca")
-parser.add_argument("--pca_outliers", type=bool, default=False, help="only has an effect when splitter is pca, "
-                                                                     "if false, the training data will be the pca "
-                                                                     "inliers "
-                                                                     "if true, the training data will be the pca "
-                                                                     "outliers")
+parser.add_argument("--pca_outliers", type=boollike, default="false", help="only has an effect when splitter is pca, "
+                                                                           "if false, the training data will be  "
+                                                                           "the pca inliers "
+                                                                           "if true, the training data will be the pca "
+                                                                           "outliers")
 
 #
 # Regression

@@ -541,12 +541,13 @@ class MDE_pBX(AdaptiveEvolver):
     @staticmethod
     def get_weight_factor(p, q):
         """
-        Weight factor formula as described in the origial paper.
+        See formula (9b) and (12b) in Islam et al.
+        Weight factor function.
         :param p: float, additive parameter.
         :param q: float, multiplicative parameter.
         :return: float, weight factor.
         """
-        return p + q * random.random()
+        return p + q * random.random()  # p + q * rand(0,1)
 
     def evolve(self, population):
         """
