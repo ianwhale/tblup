@@ -85,6 +85,12 @@ class Monitor:
             option_list.append("cr" + str(args.crossover_rate).replace(".", ""))
             option_list.append("mi" + str(args.mutation_intensity).replace(".", ""))
 
+        if args.individual != "index":
+            option_list.append(str(args.individual))
+
+        if not args.clip:
+            option_list.append(str("noclip"))
+
         return "_".join(option_list)
 
     def write(self, row):

@@ -345,7 +345,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         results = []
         for indv in population:
             results.append(
-                self.pool.apply_async(self.testing_function, (indv,))
+                self.pool.apply_async(self.testing_function, (indv.genome,))
             )
 
         accs = []
@@ -452,6 +452,46 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
             fitness_sum += self.blup(genome, train_indices, validation_indices)
 
         return np.asscalar(fitness_sum / self.n_folds)
+
+
+class MLPParallelEvaluator(ParallelEvaluator):
+    """
+    Multilayer evaluates individuals in parallel with a multilayer perceptron.
+    """
+    def __init__(self, data_path, labels_path, n_procs=-1, splitter=None):
+        """
+        Constructor.
+        :param data_path: string, path to the training data.
+        :param labels_path: string, path to the labels for the training data.
+        :param h2: float, trait heritability.
+        :param n_procs: int, number of processes to use.
+        :param splitter: callable | None, a special function to split the data into training and testing (optional).
+            - If not provided, we just shuffle and use a specified split.
+        """
+        super(MLPParallelEvaluator, self).__init__(data_path, labels_path, n_procs=n_procs)
+
+        # Store individuals we have evaluated already.
+        # Indexing works as the hashed frozenset of the list => fitness.
+        self.archive = {}
+
+        # Build training and testing indices.
+        data = np.load(data_path)
+        shape = data.shape
+        self.n_samples, self.n_columns = shape[0], shape[1]
+
+        if splitter:
+            self.training_indices, self.testing_indices = splitter(data)
+
+        else:
+            indices = random.sample(range(self.n_samples), self.n_samples)
+            n = int(len(indices) * self.TRAIN_TEST_SPLIT)
+
+            self.training_indices = indices[:n]
+            self.testing_indices = indices[n:]
+
+            n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
+            self.validation_indices = self.training_indices[n:]
+            self.training_indices = self.training_indices[:n]
 
 
 #################################################

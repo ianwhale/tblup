@@ -42,13 +42,14 @@ def build_kwargs(args):
     :param args: object, argparse arguments.
     :return: dict, kwargs
     """
+    # Import inside function to avoid circular imports in other modules.
+    from tblup import get_seeder
     from tblup import get_evolver
     from tblup import get_evaluator
-    from tblup import IndexIndividual
     from tblup import get_scheduler
+    from tblup import get_individual
     from tblup import Monitor
     from tblup import DifferentialEvolutionSelector
-    from tblup import get_seeder
 
     args.dimensionality = get_dimensionality(args)
 
@@ -56,7 +57,7 @@ def build_kwargs(args):
         "evolver": get_evolver(args),
         "evaluator": get_evaluator(args),
         "selector": DifferentialEvolutionSelector(),
-        "individual": IndexIndividual,
+        "individual": get_individual(args),
         "scheduler": get_scheduler(args),
         "length": args.initial_features if args.initial_features else args.features,
         "dimensionality": args.dimensionality,

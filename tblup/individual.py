@@ -4,6 +4,21 @@ from tblup import uid
 from copy import deepcopy
 
 
+def get_individual(args):
+    """
+    Get the desired individual type.
+    :param args: argparse.Namespace
+    :return: callable, tblup.Individual constructor.
+    """
+    if args.individual == "index":
+        return IndexIndividual
+
+    if args.individual == "nullable":
+        return NullableIndexIndividual
+
+    raise NotImplementedError("Individual with config option {} not implemented.".format(args.individual))
+
+
 class Individual(abc.ABC):
     """
     Individual base class.
@@ -50,12 +65,16 @@ class IndexIndividual(Individual):
         super(IndexIndividual, self).__init__(length, dimensionality)
 
         if genome:
-            self.genome = genome
+            self._genome = genome
 
         else:
-            self.genome = random.sample(range(dimensionality), self.length)
+            self._genome = random.sample(range(dimensionality), self.length)
 
         self.fitness = float("-inf")
+
+    @property
+    def genome(self):
+        return self._genome
 
     def __deepcopy__(self, memo):
         """
@@ -64,23 +83,47 @@ class IndexIndividual(Individual):
         :return: tblup.IndexIndividual
         """
         cp = super(IndexIndividual, self).__deepcopy__(memo)
-        cp.genome = deepcopy(self.genome)
+        cp._genome = deepcopy(self._genome)
         return cp
 
     def __len__(self):
-        return len(self.genome)
+        return len(self._genome)
 
     def __getitem__(self, item):
-        return self.genome[item]
+        return self._genome[item]
 
     def __setitem__(self, key, value):
-        self.genome[key] = value
+        self._genome[key] = value
 
     def fill(self, new_size):
-        genome_set = set(self.genome)
+        genome_set = set(self._genome)
 
         while len(genome_set) < new_size:
             rand_features = random.sample(range(self.dimensionality), new_size - len(genome_set))
             genome_set.update(rand_features)
 
-        self.genome = list(genome_set)
+        self._genome = list(genome_set)
+
+
+class NullableIndexIndividual(IndexIndividual):
+    """
+    Same as index individual, but handles the case when an index is outside [0, dimensionality) by removing it from
+    the genome. This effectively allows the search to chose index subsets that are smaller than the desired features.
+    """
+    @property
+    def genome(self):
+        """
+        Remove indices in the genome that are outside [0, dimensionality).
+        :return: list
+        """
+        return [gene for gene in self._genome if 0 <= gene < self.dimensionality]
+
+    def __len__(self):
+        """
+        Return the length of the self.genome property.
+        :return: int
+        """
+        length = 0
+        for gene in self._genome:
+            length += 1 if 0 <= gene < self.dimensionality else 0
+        return length

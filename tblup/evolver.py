@@ -15,16 +15,16 @@ def get_evolver(args):
     :return: tblup.Evolver
     """
     if args.de_strategy == "de_rand_1":
-        return DERandOneEvolver(args.dimensionality, args.crossover_rate, args.mutation_intensity)
+        return DERandOneEvolver(args.dimensionality, args.crossover_rate, args.mutation_intensity, args.clip)
 
     if args.de_strategy == "de_currenttobest_1":
-        return DECurrentToBestOneEvolver(args.dimensionality, args.crossover_rate, args.mutation_intensity)
+        return DECurrentToBestOneEvolver(args.dimensionality, args.crossover_rate, args.mutation_intensity, args.clip)
 
     if args.de_strategy == "sade":
-        return SaDE(args.dimensionality)
+        return SaDE(args.dimensionality, args.clip)
 
     if args.de_strategy == "mde_pbx":
-        return MDE_pBX(args.dimensionality, args.generations)
+        return MDE_pBX(args.dimensionality, args.generations, args.clip)
 
     raise NotImplementedError("Evolver with config option {} is not implemented.".format(args.de_strategy))
 
@@ -47,24 +47,27 @@ class DERandOneEvolver(Evolver):
     "DE/rand/1" mutation.
         - Get random all random mutators and create a candidate vector.
     """
-    def __init__(self, dimensionality, crossover_rate, mutation_intensity):
+    def __init__(self, dimensionality, crossover_rate, mutation_intensity, clip=True):
         """
         :param dimensionality: int, dimensionality of the problem.
         :param crossover_rate: float, [0, 1], probability to crossover.
         :param mutation_intensity: float, (0, inf), how much to mutate the candidate by.
+        :param clip: bool, true to clip indices at [0, dimensionality).
         """
         self.dimensionality = dimensionality
         self.crossover_rate = crossover_rate
         self.mutation_intensity = mutation_intensity
+        self.clip = clip
 
     @staticmethod
-    def de_rand_one(population, mi, cr, dimensionality, parent_idx):
+    def de_rand_one(population, mi, cr, dimensionality, parent_idx, clip=True):
         """
         :param population: tblup.Population, current population.
         :param mi: float, mutation intensity (also known as F).
         :param cr: float, crossover rate.
         :param dimensionality: int, dimensionality of the problem.
         :param parent_idx: int, index of parent.
+        :param clip: bool, true to clip indices at [0, dimensionality).
         :return: tblup.Individual, the candidate individual.
         """
         pop_len = len(population)
@@ -88,7 +91,8 @@ class DERandOneEvolver(Evolver):
                 mutant = round(a[j] + mi * (b[j] - c[j]))  # Round for integer solutions only.
 
                 # Bound solutions.
-                mutant = np.clip(mutant, 0, dimensionality - 1)
+                if clip:
+                    mutant = np.clip(mutant, 0, dimensionality - 1)
                 candidate[j] = int(mutant)
 
         return candidate
@@ -107,7 +111,7 @@ class DERandOneEvolver(Evolver):
 
         next_pop = []
         for i in range(len(population)):
-            next_pop.append(self.de_rand_one(population, mi, self.crossover_rate, self.dimensionality, i))
+            next_pop.append(self.de_rand_one(population, mi, self.crossover_rate, self.dimensionality, i, self.clip))
 
         return next_pop
 
@@ -119,7 +123,7 @@ class DECurrentToBestOneEvolver(Evolver):
         V_i = X_i + F * (X_{best} - X_i)
     Where X_{best} is the current best
     """
-    def __init__(self, dimensionality, crossover_rate, mutation_intensity):
+    def __init__(self, dimensionality, crossover_rate, mutation_intensity, clip=True):
         """
         :param dimensionality: int, dimensionality of the problem.
         :param crossover_rate: float, [0, 1], probability to crossover.
@@ -128,9 +132,10 @@ class DECurrentToBestOneEvolver(Evolver):
         self.dimensionality = dimensionality
         self.crossover_rate = crossover_rate
         self.mutation_intensity = mutation_intensity
+        self.clip = clip
 
     @staticmethod
-    def de_currenttobest_one(population, mi, cr, dimensionality, parent_idx, best=None):
+    def de_currenttobest_one(population, mi, cr, dimensionality, parent_idx, best=None, clip=True):
         """
         Actual DE step.
         :param population: tblup.Population, current population.
@@ -139,6 +144,7 @@ class DECurrentToBestOneEvolver(Evolver):
         :param dimensionality: int, dimensionality of the problem.
         :param parent_idx: int, index of parent.
         :param best: None | tblup.Individual, if not provided, will be determined.
+        :param clip: bool, true to clip indices at [0, dimensionality).
         :return: tblup.Individual, the candidate individual.
         """
         pop_len = len(population)
@@ -164,7 +170,8 @@ class DECurrentToBestOneEvolver(Evolver):
                 mutant = round(candidate[j] + mi * (best[j] - candidate[j]) + mi * (a[j] - b[j]))
 
                 # Bound solutions.
-                mutant = np.clip(mutant, 0, dimensionality - 1)
+                if clip:
+                    mutant = np.clip(mutant, 0, dimensionality - 1)
                 candidate[j] = int(mutant)
 
         return candidate
@@ -335,14 +342,16 @@ class SaDE(AdaptiveEvolver):
     regenerate_crs_interval = 5  # Regenerate new crossover rates at generations that are multiples of this constant.
     initial_learning_period = 50  # Learn ns and nf parameters for this many initial generations, then reset them.
 
-    def __init__(self, dimensionality):
+    def __init__(self, dimensionality, clip=True):
         """
         Constructor.
         :param dimensionality: int, dimensionality of the problem.
+        :param clip: bool, true to clip indices at [0, dimensionality).
         """
         super(SaDE, self).__init__()
         
         self.dimensionality = dimensionality
+        self.clip = clip
         self.cr_m = 0.5  # Initial crossover rate mean.
         self.p = 0.5  # Initial probability of using strategy 1, else use strategy 2.
 
@@ -438,12 +447,12 @@ class SaDE(AdaptiveEvolver):
             if random.random() < self.p:
                 # Do strategy 1, i.e. DE/rand/1
                 self.strategy_one_indices.add(i)
-                indv = DERandOneEvolver.de_rand_one(population, f, self.crs[i], self.dimensionality, i)
+                indv = DERandOneEvolver.de_rand_one(population, f, self.crs[i], self.dimensionality, i, clip=self.clip)
 
             else:
                 # Do strategy 2, i.e. DE/current to best/2
                 indv = DECurrentToBestOneEvolver.de_currenttobest_one(population, f, self.crs[i],
-                                                                      self.dimensionality, i, best=best)
+                                                                      self.dimensionality, i, best=best, clip=self.clip)
 
             next_pop.append(indv)
 
@@ -463,15 +472,17 @@ class MDE_pBX(AdaptiveEvolver):
     cr_std = 0.1  # Standard deviation for crossover rate normal distribution.
     group_q = 0.15  # q parameter for the q best vectors used in the current-to-gr_best/1 scheme
 
-    def __init__(self, dimensionality, generations):
+    def __init__(self, dimensionality, generations, clip=True):
         """
         Constructor.
         :param dimensionality: int, dimensionality of the problem.
         :param generations: int, maximum number of generations.
+        :param clip: bool, true to clip indices at [0, dimensionality).
         """
         super(MDE_pBX, self).__init__()
 
         self.dimensionality = dimensionality
+        self.clip = clip
         self.g_max = generations
 
         self.cr_m = 0.6  # Initial crossover mean.
@@ -576,7 +587,8 @@ class MDE_pBX(AdaptiveEvolver):
                                                                    self.crs[i],
                                                                    self.dimensionality,
                                                                    parent_idx,
-                                                                   gr_choice)
+                                                                   best=gr_choice,
+                                                                   clip=self.clip)
 
             next_pop.append(indiv)
 

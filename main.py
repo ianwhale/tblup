@@ -31,6 +31,9 @@ def main():
             ["Testing"] + population.monitor.get_row_summary(results) + ["Final"]
         )
 
+        if args.individual == "nullable":
+            print(population[int(numpy.argmax(results))].genome)
+
 
 if __name__ == '__main__':
     main()
