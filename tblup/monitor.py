@@ -11,6 +11,7 @@ class Monitor:
     """
 
     ROUND_DECIMALS = 4
+    ADAPTIVE_STRATEGIES = ["sade", "mde_pbx"]
 
     def __init__(self, args):
         """
@@ -81,7 +82,7 @@ class Monitor:
         option_list.append("n" + str(args.population_size))
         option_list.append("g" + str(args.generations))
 
-        if args.de_strategy != "sade":
+        if args.de_strategy not in self.ADAPTIVE_STRATEGIES:
             option_list.append("cr" + str(args.crossover_rate).replace(".", ""))
             option_list.append("mi" + str(args.mutation_intensity).replace(".", ""))
 
