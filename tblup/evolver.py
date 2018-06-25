@@ -1,4 +1,6 @@
+import os
 import abc
+import csv
 import random
 import numpy as np
 from math import ceil
@@ -263,11 +265,40 @@ class AdaptiveEvolver(Evolver):
         self.crs = []  # Crossover rates for the current generation.
         self.fs = []  # Mutation factors for the current generation.
 
+    def should_report(self):
+        """By default, aways report statistics about adapting parameters."""
+        return True
+
+    def report(self, population):
+        """Report statistics about adaptive evolver."""
+        directory = os.path.dirname(population.monitor.results_file)
+        params_file, ext = os.path.splitext(os.path.basename(population.monitor.results_file))
+        params_file = os.path.join(directory, params_file + "_params" + ext)
+
+        if population.generation == 1:
+            # Write header.
+            with open(params_file, "w") as f:
+                csv.writer(f).writerow(self.get_header())
+
+        with open(params_file, "a") as f:
+            csv.writer(f).writerow(self.get_params_row())
+
+    @abc.abstractmethod
+    def get_header(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def get_params_row(self):
+        raise NotImplementedError()
+
     def evolve(self, population):
         """
         Create the next population. See original paper for more details not described with inline comments.
         :param population: tblup.Population
         """
+        if self.should_report():
+            self.report(population)
+
         if self.previous_pop_uids is None:  # On the initial generation, set the uids before logic checks.
             self.previous_pop_uids = [individual.uid for individual in population]
 
@@ -342,6 +373,8 @@ class SaDE(AdaptiveEvolver):
     regenerate_crs_interval = 5  # Regenerate new crossover rates at generations that are multiples of this constant.
     initial_learning_period = 50  # Learn ns and nf parameters for this many initial generations, then reset them.
 
+    header = ["p", "cr_m"]  # Header to use in the parameter reporting file.
+
     def __init__(self, dimensionality, clip=True):
         """
         Constructor.
@@ -359,6 +392,14 @@ class SaDE(AdaptiveEvolver):
 
         # Number of successes/failures method 1 or 2 has.
         self.ns_1, self.ns_2, self.nf_1, self.nf_2 = 0, 0, 0, 0
+
+    def get_header(self):
+        """Header for parameter csv output."""
+        return ["cr_m", "p"]
+
+    def get_params_row(self):
+        """Row for parameter csv output."""
+        return [self.cr_m, self.p]
 
     def should_regenerate_crs(self, generation):
         """Should we regenerate the crossover rates?"""
@@ -489,6 +530,14 @@ class MDE_pBX(AdaptiveEvolver):
         self.f_m = 0.5  # Initial mutation factor mean.
 
         self.p = None
+
+    def get_header(self):
+        """Header for parameter csv output."""
+        return ["cr_m", "f_m"]
+
+    def get_params_row(self):
+        """Row for parameter csv output."""
+        return [self.cr_m, self.f_m]
 
     def should_regenerate_fs(self, population):
         """Always regenerate mutation values."""

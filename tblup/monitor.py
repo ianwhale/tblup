@@ -31,7 +31,7 @@ class Monitor:
         results_file = join(results, str(args.seed).zfill(3) + "_results")
         archive_file = join(results, str(args.seed).zfill(3) + "_archive")
 
-        # Be sure to not overwite a file.
+        # Be sure to not overwrite a file.
         i = 1
         temp_res = results_file
         temp_arch = archive_file
