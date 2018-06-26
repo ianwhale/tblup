@@ -322,8 +322,12 @@ class AdaptiveEvolver(Evolver):
         for i, [previous_uid, current_individual] in enumerate(zip(self.previous_pop_uids, population)):
             if previous_uid != current_individual.uid:
                 # A successful parameter, record it as such.
-                self.successful_crs.append(self.crs[i])
-                self.successful_fs.append(self.fs[i])
+                # Be sure that we actually generated Cr and F values at the index as well.
+                if len(self.crs) > i:
+                    self.successful_crs.append(self.crs[i])
+
+                if len(self.fs) > i:
+                    self.successful_fs.append(self.fs[i])
 
     @abc.abstractmethod
     def should_regenerate_crs(self, population):
@@ -401,9 +405,9 @@ class SaDE(AdaptiveEvolver):
         """Row for parameter csv output."""
         return [self.cr_m, self.p]
 
-    def should_regenerate_crs(self, generation):
+    def should_regenerate_crs(self, population):
         """Should we regenerate the crossover rates?"""
-        return len(self.crs) == 0 or generation % self.regenerate_crs_interval == 0
+        return len(self.crs) == 0 or population.generation % self.regenerate_crs_interval == 0
 
     def should_recalculate_cr_m(self, generation):
         """Should we recalculate the mean of the crossover rates?"""
@@ -540,7 +544,7 @@ class MDE_pBX(AdaptiveEvolver):
         return [self.cr_m, self.f_m]
 
     def should_regenerate_fs(self, population):
-        """Always regenerate mutation values."""
+        """Always regenerate mutation factors."""
         return True
 
     def should_regenerate_crs(self, population):
