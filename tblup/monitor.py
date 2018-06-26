@@ -129,10 +129,16 @@ class Monitor:
         :param population: tblup.Population.
         :return list: a row in the results file.
         """
-        fits = [x.fitness for x in population]
-        current_length = len(population[0])
+        fits = []
 
-        return [population.generation] + self.get_row_summary(fits) + [current_length]
+        lens = 0
+        for indv in population:
+            fits.append(indv.fitness)
+            lens += len(indv)
+
+        avg_len = lens / len(population)
+
+        return [population.generation] + self.get_row_summary(fits) + [avg_len]
 
     def get_row_summary(self, fitnesses):
         """
