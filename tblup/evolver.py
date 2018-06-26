@@ -415,10 +415,8 @@ class SaDE(AdaptiveEvolver):
 
     def recalculate_cr_m(self):
         """Recalculate the mean of the crossover rates."""
-        if len(self.successful_crs) == 0:
-            return
-
-        self.cr_m = np.mean(self.successful_crs)
+        if len(self.successful_crs) > 0:
+            self.cr_m = np.mean(self.successful_crs)
 
     def generate_f(self):
         """Generate a mutation intensity (F), where F follows N(mi_m, mi_std), and F in [0, 2]."""
@@ -434,11 +432,13 @@ class SaDE(AdaptiveEvolver):
 
     def recalculate_p(self, population):
         """Recalculate the probability of using strategy 1 if needed."""
-        if population.generation < self.initial_learning_period:
-            return  # Do not recalculate.
-
-        self.p = (self.ns_1 * (self.ns_2 + self.nf_2)) \
-            / (self.ns_2 * (self.ns_1 + self.nf_1) + self.ns_1 * (self.ns_2 + self.nf_2))
+        if population.generation >= self.initial_learning_period:
+            # If else here may seem redundant but it is implicitly a divide by zero guard.
+            if self.ns_1 == 0:
+                self.p = 0
+            else:
+                self.p = (self.ns_1 * (self.ns_2 + self.nf_2)) \
+                     / (self.ns_2 * (self.ns_1 + self.nf_1) + self.ns_1 * (self.ns_2 + self.nf_2))
 
     def count_outcomes(self, population):
         """
@@ -567,21 +567,17 @@ class MDE_pBX(AdaptiveEvolver):
 
     def recalculate_cr_m(self):
         """Recalculate cr_m with formula (12a) in Islam et al."""
-        if len(self.successful_crs) == 0:
-            return
-
-        w_cr = self.get_weight_factor(0.9, 0.1)
-        self.cr_m = w_cr * self.cr_m + (1 - w_cr) * self.mean_pow(self.successful_crs)
-        self.successful_crs = []  # Reset record of successful crossover rates.
+        if len(self.successful_crs) > 0:
+            w_cr = self.get_weight_factor(0.9, 0.1)
+            self.cr_m = w_cr * self.cr_m + (1 - w_cr) * self.mean_pow(self.successful_crs)
+            self.successful_crs = []  # Reset record of successful crossover rates.
 
     def recalculate_f_m(self):
         """Recalculate f_m with formula (9a) in Islam et al."""
-        if len(self.successful_fs) == 0:
-            return
-
-        w_f = self.get_weight_factor(0.8, 0.2)
-        self.f_m = w_f * self.f_m + (1 - w_f) * self.mean_pow(self.successful_fs)
-        self.successful_fs = []  # Reset record of succesful mutation factors.
+        if len(self.successful_fs) > 0:
+            w_f = self.get_weight_factor(0.8, 0.2)
+            self.f_m = w_f * self.f_m + (1 - w_f) * self.mean_pow(self.successful_fs)
+            self.successful_fs = []  # Reset record of successful mutation factors.
 
     def recalculate_p(self, population):
         """Recalculate p with formula (7) in Islam et al."""
