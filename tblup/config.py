@@ -38,7 +38,7 @@ parser.add_argument("--pca_outliers", type=boollike, default="false", help="only
 # Regression
 #
 parser.add_argument("--regressor", default="blup", help="type of regression scheme, available types: "
-                                                        "blup, intracv_blup, intercv_blup")
+                                                        "blup, intracv_blup, intercv_blup, montecv_blup")
 parser.add_argument("-h2", "--heritability", type=float, default=0.16, help="heritability of trait being predicted")
 parser.add_argument("--cv_folds", type=int, default=5, help="number of folds to use in cross-validation")
 
@@ -63,3 +63,5 @@ parser.add_argument("--seeder_metric", default="p_value", help="the metric the s
 parser.add_argument("--individual", default="index", help="type of individual available types: index, nullable")
 parser.add_argument("--clip", type=boollike, default="true", help="if true, clip at the dimensionality bounds [0, d) "
                                                                   "if false, no clipping will occur")
+parser.add_argument("--record_testing", type=boollike, default="false", help="if true, record testing error in search "
+                                                                             "if false, do not")

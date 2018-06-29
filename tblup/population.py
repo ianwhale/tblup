@@ -1,6 +1,6 @@
 class Population:
     def __init__(self, evolver, evaluator, selector, individual, scheduler, length,
-                 dimensionality, num_individuals, monitor, seeded_initial=None):
+                 dimensionality, num_individuals, monitor, seeded_initial=None, record_testing=False):
         """
         Constructor.
         :param evolver: tblup.Evolver.
@@ -13,10 +13,12 @@ class Population:
         :param num_individuals: int, number of individuals in the population.
         :param monitor: tblup.Monitor, gathers population statistics.
         :param seeded_initial: iterable, tblup.Individuals with some desirable initial properties.
+        :param record_testing: bool, True to record testing accuracy during search.
         """
         self.evolver = evolver
-        self.evaluator = evaluator
+        self.monitor = monitor
         self.selector = selector
+        self.evaluator = evaluator
         self.scheduler = scheduler
 
         if seeded_initial is not None:
@@ -25,13 +27,16 @@ class Population:
         else:
             self.population = [individual(length, dimensionality) for _ in range(num_individuals)]
 
+        self.record_testing = record_testing
         self.dimensionality = dimensionality
-        self.monitor = monitor
         self.generation = 0
 
         # Gather statistics on initial population.
-        self.evaluator.evaluate(self, 0)
+        self.evaluator.evaluate(self, self.generation)
         self.monitor.report(self)
+
+        if self.record_testing:
+            self.monitor.report_testing(self)
 
         self.generation += 1
 
@@ -52,4 +57,8 @@ class Population:
             self.evaluator.evaluate(self, self.generation)
 
         self.monitor.report(self)
+
+        if self.record_testing:
+            self.monitor.report_testing(self)
+
         self.generation += 1

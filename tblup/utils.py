@@ -62,7 +62,8 @@ def build_kwargs(args):
         "length": args.initial_features if args.initial_features else args.features,
         "dimensionality": args.dimensionality,
         "num_individuals": args.population_size,
-        "monitor": Monitor(args)
+        "monitor": Monitor(args),
+        "record_testing": args.record_testing
     }
 
     d["seeded_initial"] = get_seeder(args, d["evaluator"])

@@ -37,6 +37,10 @@ def get_evaluator(args):
                                              n_procs=args.processes, n_folds=args.cv_folds,
                                              splitter=splitter)
 
+    if args.regressor == "montecv_blup":
+        return MonteCarloCVBlupParallelEvaluator(args.geno, args.pheno, args.heritability,
+                                             n_procs=args.processes, splitter=splitter)
+
 
 #################################################
 #                  Evaluators                   #
@@ -452,6 +456,31 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
             fitness_sum += self.blup(genome, train_indices, validation_indices)
 
         return np.asscalar(fitness_sum / self.n_folds)
+
+
+class MonteCarloCVBlupParallelEvaluator(BlupParallelEvaluator):
+    """
+    Uses Monte Carlo cross-validation in the fitness function.
+
+    Only overrides the train_validation_indices method.
+    """
+    def __init__(self, data_path, labels_path, h2, n_procs=-1, splitter=None):
+        """
+        See parent doc.
+        """
+        super(MonteCarloCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
+                                                                splitter=splitter)
+
+    def train_validation_indices(self, generation):
+        """
+        Generates a random training and validation set.
+        :param generation: int, current generation (not used).
+        :return: (list, list), (training indices, validation indices)
+        """
+        p, q = len(self.training_indices), len(self.validation_indices)
+        indices = [i for i in range(p + q)]
+        random.shuffle(indices)
+        return indices[:p], indices[p:]
 
 
 class MLPParallelEvaluator(ParallelEvaluator):

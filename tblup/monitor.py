@@ -29,24 +29,32 @@ class Monitor:
             os.mkdir(results)
 
         results_file = join(results, str(args.seed).zfill(3) + "_results")
+        testing_file = join(results, str(args.seed).zfill(3) + "_results_testing")
         archive_file = join(results, str(args.seed).zfill(3) + "_archive")
 
         # Be sure to not overwrite a file.
         i = 1
         temp_res = results_file
+        temp_test = testing_file
         temp_arch = archive_file
         while isfile(temp_res + ".csv") or isfile(temp_arch + ".json"):
             temp_res = results_file + "_" + str(i)
+            temp_test = testing_file + "_" + str(i)
             temp_arch = archive_file + "_" + str(i)
 
             i += 1
 
         self.results_file = temp_res + ".csv"
+        self.testing_file = temp_test + ".csv"
         self.archive_file = temp_arch + ".pkl"
 
         header = ["generation", "max_fitness", "min_fitness", "median_fitness", "mean_fitness", "stdev_fitness", "len"]
         with open(self.results_file, "w") as f:
             csv.writer(f).writerow(header)
+
+        if args.record_testing:
+            with open(self.testing_file, "w") as f:
+                csv.writer(f).writerow(header)
 
     def make_subdir(self, args):
         """
@@ -112,6 +120,16 @@ class Monitor:
         :return: list, the stats of the population.
         """
         return self.write(self.gather_stats(population))
+
+    def report_testing(self, population):
+        """
+        Record the testing error of the current population.
+        :param population: tblup.Population
+        """
+        results = population.evaluator.evaluate_testing(population)
+
+        with open(self.testing_file, "a") as f:
+            csv.writer(f).writerow([population.generation] + self.get_row_summary(results))
 
     def save_archive(self, population):
         """
