@@ -113,7 +113,7 @@ def one_elite(args, evaluator):
 
 def top_snps(args, evaluator):
     """
-    Entire population is the top-N SNPs as definted by the given metric, where N = pop_size * features_selected
+    Entire population is the top-N SNPs as defined by the given metric, where N = pop_size * features_selected
     :param args: object, argparse.Namespace
     :param evaluator: tblup.Evaluator
     :yield: list, list of indices representing a genome.

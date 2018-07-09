@@ -43,7 +43,45 @@ class Evolver(abc.ABC):
         raise NotImplementedError()
 
 
-class DERandOneEvolver(Evolver):
+class CrossoverMixin:
+    """
+    Abstract class to support different crossover types.
+    """
+    @staticmethod
+    @abc.abstractmethod
+    def crossover(target, mutant, cr):
+        """
+        Abstract method.
+        :param target: tblup.Individual
+        :param mutant: np.array
+        :param cr: float, crossover rate
+        :return: tblup.Individual, with crossed-over genome.
+        """
+        raise NotImplementedError()
+
+
+class BinaryCrossoverMixin(CrossoverMixin):
+    """
+    Binary crossover. Chooses randomly based on crossover rate. This is the original formula from Storn & Price.
+    """
+    @staticmethod
+    def crossover(target, mutant, cr):
+        """
+        Perform binary crossover.
+        :param target: tblup.Individual, will have its genome crossed-over with mutant vector.
+        :param mutant: np.array, mutant vector.
+        :param cr: float, crossover rate.
+        :return: tblup.Individual
+        """
+        fixed = random.randrange(0, len(target.get_internal_genome()))
+        crossover = np.random.rand(len(target.get_internal_genome())) < cr
+        crossover[fixed] = True
+        target.set_internal_genome(np.where(crossover, mutant, target.get_internal_genome()))
+
+        return target
+
+
+class DERandOneEvolver(Evolver, BinaryCrossoverMixin):
     """
     Standard differential evolution scheme.
     "DE/rand/1" mutation.
@@ -81,21 +119,20 @@ class DERandOneEvolver(Evolver):
         b = exclusive_randrange(0, pop_len, [parent_idx, a])
         c = exclusive_randrange(0, pop_len, [parent_idx, a, b])
 
-        a, b, c = population[a], population[b], population[c]
+        a, b, c = population[a].get_internal_genome(), \
+            population[b].get_internal_genome(), \
+            population[c].get_internal_genome()
 
         # Create candidate from mutators and parent.
         candidate = deepcopy(parent)
 
-        fixed = random.randrange(0, len(parent))
+        # Create mutant vector with formula.
+        mutant = a + mi * (b - c)
 
-        for j in range(len(parent)):
-            if j == fixed or random.random() < cr:
-                mutant = round(a[j] + mi * (b[j] - c[j]))  # Round for integer solutions only.
+        candidate = DERandOneEvolver.crossover(candidate, mutant, cr)
 
-                # Bound solutions.
-                if clip:
-                    mutant = np.clip(mutant, 0, dimensionality - 1)
-                candidate[j] = int(mutant)
+        if clip:
+            candidate.set_internal_genome(np.clip(candidate.get_internal_genome, 0, dimensionality - 1))
 
         return candidate
 
@@ -118,7 +155,7 @@ class DERandOneEvolver(Evolver):
         return next_pop
 
 
-class DECurrentToBestOneEvolver(Evolver):
+class DECurrentToBestOneEvolver(Evolver, BinaryCrossoverMixin):
     """
     DE/Current to best/1 strategy.
     Mutant vector V_i described by, for random vectors X_a and X_b, and target (parent) X_i,
@@ -160,21 +197,20 @@ class DECurrentToBestOneEvolver(Evolver):
         a = exclusive_randrange(0, pop_len, [parent_idx])
         b = exclusive_randrange(0, pop_len, [parent_idx, a])
 
-        a, b = population[a], population[b]
+        a, b = population[a].get_internal_genome(), population[b].get_internal_genome()
 
         # Create candidate from mutators and parent.
         candidate = deepcopy(parent)
 
-        fixed = random.randrange(0, len(parent))
+        # Create mutant vector with formula.
+        mutant = candidate.get_internal_genome() + \
+            mi * (best.get_internal_genome() - candidate.get_internal_genome()) \
+            + mi * (a - b)
 
-        for j in range(len(parent)):
-            if j == fixed or random.random() < cr:
-                mutant = round(candidate[j] + mi * (best[j] - candidate[j]) + mi * (a[j] - b[j]))
+        candidate = DECurrentToBestOneEvolver.crossover(candidate, mutant, cr)
 
-                # Bound solutions.
-                if clip:
-                    mutant = np.clip(mutant, 0, dimensionality - 1)
-                candidate[j] = int(mutant)
+        if clip:
+            candidate.set_internal_genome(np.clip(candidate.get_internal_genome(), 0, dimensionality - 1))
 
         return candidate
 

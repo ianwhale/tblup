@@ -1,5 +1,6 @@
 import abc
 import random
+import numpy as np
 from tblup import uid
 from copy import deepcopy
 
@@ -15,6 +16,9 @@ def get_individual(args):
 
     if args.individual == "nullable":
         return NullableIndexIndividual
+
+    if args.individual == "randkeys":
+        return RandomKeyIndividual
 
     raise NotImplementedError("Individual with config option {} not implemented.".format(args.individual))
 
@@ -68,13 +72,19 @@ class IndexIndividual(Individual):
             self._genome = genome
 
         else:
-            self._genome = random.sample(range(dimensionality), self.length)
+            self._genome = np.random.randint(0, dimensionality, length)
 
         self.fitness = float("-inf")
 
     @property
     def genome(self):
+        return self._genome.astype(int)
+
+    def get_internal_genome(self):
         return self._genome
+
+    def set_internal_genome(self, genome):
+        self._genome = genome
 
     def __deepcopy__(self, memo):
         """
@@ -102,7 +112,38 @@ class IndexIndividual(Individual):
             rand_features = random.sample(range(self.dimensionality), new_size - len(genome_set))
             genome_set.update(rand_features)
 
-        self._genome = list(genome_set)
+        self._genome = np.array(genome_set)
+
+
+class RandomKeyIndividual(IndexIndividual):
+    """
+    Individual whose genome is real valued, and the length of the dimensionality.
+    Indices into the matrix are obtained by sorted based on the value of a key.
+        - I.e., we obtain the indices we want in the matrix by getting the top-N indices that would sort the genome.
+    """
+    # TODO: make compatible with complexification.
+    #   - Mimic union process with real-valued vectors.
+    def __init__(self, length, dimensionality, genome=None):
+        """
+        Constructor
+        :param length: int, here we interpret this as how many indices will be selected after sorting.
+        :param dimensionality: int, actual length of the individual.
+        :param genome: list, option list representing the genome.
+        """
+        super(RandomKeyIndividual, self).__init__(length, dimensionality)
+
+        if genome:
+            self._genome = genome
+
+        else:
+            self._genome = np.random.uniform(size=dimensionality)
+
+    @property
+    def genome(self):
+        return np.argsort(self._genome)[-self.length:]
+
+    def __len__(self):
+        return self.length
 
 
 class NullableIndexIndividual(IndexIndividual):
@@ -116,7 +157,8 @@ class NullableIndexIndividual(IndexIndividual):
         Remove indices in the genome that are outside [0, dimensionality).
         :return: list
         """
-        return [gene for gene in self._genome if 0 <= gene < self.dimensionality]
+        condition = np.logical_and(0 <= self._genome, self._genome < self.dimensionality)
+        return np.extract(condition, self._genome).astype(int)
 
     def __len__(self):
         """
