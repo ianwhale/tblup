@@ -60,7 +60,8 @@ parser.add_argument("-mi", "--mutation_intensity", type=float, default=0.5, help
 parser.add_argument("--seeder", default=None, help="seeder to use, available types: half_half, one_elite, top_snps")
 parser.add_argument("--seeder_metric", default="p_value", help="the metric the seeder will use to filter the data "
                                                                "available types: p_value, f_score")
-parser.add_argument("--individual", default="index", help="type of individual available types: index, nullable")
+parser.add_argument("--individual", default="index", help="type of individual available types: index, nullable, "
+                                                          "randkeys")
 parser.add_argument("--clip", type=boollike, default="true", help="if true, clip at the dimensionality bounds [0, d) "
                                                                   "if false, no clipping will occur")
 parser.add_argument("--record_testing", type=boollike, default="false", help="if true, record testing error in search "
