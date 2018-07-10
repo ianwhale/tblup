@@ -22,7 +22,10 @@ class Population:
         self.scheduler = scheduler
 
         if seeded_initial is not None:
-            self.population = [individual(length, dimensionality, genome=genome) for genome in seeded_initial]
+            self.population = []
+
+            for _ in range(num_individuals):
+                self.population.append(individual(length, dimensionality, genome=next(seeded_initial)))
 
         else:
             self.population = [individual(length, dimensionality) for _ in range(num_individuals)]

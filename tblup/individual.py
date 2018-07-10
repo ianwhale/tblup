@@ -68,7 +68,7 @@ class IndexIndividual(Individual):
         """
         super(IndexIndividual, self).__init__(length, dimensionality)
 
-        if genome:
+        if genome is not None:
             self._genome = genome
 
         else:
@@ -132,7 +132,7 @@ class RandomKeyIndividual(IndexIndividual):
         """
         super(RandomKeyIndividual, self).__init__(length, dimensionality)
 
-        if genome:
+        if genome is not None:
             self._genome = genome
 
         else:

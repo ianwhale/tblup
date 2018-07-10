@@ -73,7 +73,7 @@ def get_top_n(args, evaluator, n=None):
     for train, _ in KFold(n_splits=5).split(X):
         scores += metric(X[train], y[train].ravel())
 
-    return [int(x) for x in np.argsort(scores, axis=0)[-n:]]
+    return np.argsort(scores, axis=0)[-n:]
 
 
 def half_half_seeder(args, evaluator):
@@ -92,7 +92,7 @@ def half_half_seeder(args, evaluator):
         while len(genome) < n:
             genome.add(random.randrange(0, args.dimensionality))
 
-        yield list(genome)
+        yield np.array(list(genome))
 
 
 def one_elite(args, evaluator):
@@ -108,7 +108,7 @@ def one_elite(args, evaluator):
     yield best_features
 
     for i in range(args.population_size - 1):
-        yield random.sample(range(args.dimensionality), n)
+        yield np.random.choice(range(args.dimensionality), n)
 
 
 def top_snps(args, evaluator):
@@ -124,5 +124,10 @@ def top_snps(args, evaluator):
 
     start = 0
     while n + start < len(best_features):
-        yield best_features[start:n]
+        yield best_features[start:n + start]
         start += n
+
+    # Start seeding randomly if we go over size.
+    indices = range(0, args.dimensionality - 1)
+    while True:
+        yield np.random.choice(indices, n, replace=False)
