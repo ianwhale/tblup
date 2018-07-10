@@ -8,6 +8,7 @@ import tblup.sharearray as sa
 from scipy.stats import pearsonr
 from sklearn.linear_model import Ridge
 from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
 
 
 def get_evaluator(args):
@@ -198,9 +199,9 @@ class BlupParallelEvaluator(ParallelEvaluator):
             self.training_indices = indices[:n]
             self.testing_indices = indices[n:]
 
-            n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
-            self.validation_indices = self.training_indices[n:]
-            self.training_indices = self.training_indices[:n]
+        n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
+        self.validation_indices = self.training_indices[n:]
+        self.training_indices = self.training_indices[:n]
 
     def blup(self, indices, train_indices, validation_indices):
         """
@@ -471,16 +472,15 @@ class MonteCarloCVBlupParallelEvaluator(BlupParallelEvaluator):
         super(MonteCarloCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
                                                                 splitter=splitter)
 
+        self.indices = np.concatenate((self.training_indices, self.validation_indices))
+
     def train_validation_indices(self, generation):
         """
         Generates a random training and validation set.
         :param generation: int, current generation (not used).
         :return: (list, list), (training indices, validation indices)
         """
-        p, q = len(self.training_indices), len(self.validation_indices)
-        indices = [i for i in range(p + q)]
-        random.shuffle(indices)
-        return indices[:p], indices[p:]
+        return train_test_split(self.indices, test_size=0.2)
 
 
 class MLPParallelEvaluator(ParallelEvaluator):
@@ -518,9 +518,9 @@ class MLPParallelEvaluator(ParallelEvaluator):
             self.training_indices = indices[:n]
             self.testing_indices = indices[n:]
 
-            n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
-            self.validation_indices = self.training_indices[n:]
-            self.training_indices = self.training_indices[:n]
+        n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
+        self.validation_indices = self.training_indices[n:]
+        self.training_indices = self.training_indices[:n]
 
 
 #################################################
