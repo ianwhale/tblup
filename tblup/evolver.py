@@ -132,7 +132,7 @@ class DERandOneEvolver(Evolver, BinaryCrossoverMixin):
         candidate = DERandOneEvolver.crossover(candidate, mutant, cr)
 
         if clip:
-            candidate.set_internal_genome(np.clip(candidate.get_internal_genome(), 0, dimensionality - 1))
+            candidate.set_internal_genome(np.clip(candidate.get_internal_genome, 0, dimensionality - 1))
 
         return candidate
 
@@ -469,12 +469,10 @@ class SaDE(AdaptiveEvolver):
     def recalculate_p(self, population):
         """Recalculate the probability of using strategy 1 if needed."""
         if population.generation >= self.initial_learning_period:
-            # If else here may seem redundant but it is implicitly a divide by zero guard.
-            if self.ns_1 == 0:
-                self.p = 0
-            else:
+            # Gaurd for division by 0.
+            if self.ns_1 != 0 or self.ns_2 != 0:
                 self.p = (self.ns_1 * (self.ns_2 + self.nf_2)) \
-                     / (self.ns_2 * (self.ns_1 + self.nf_1) + self.ns_1 * (self.ns_2 + self.nf_2))
+                         / (self.ns_2 * (self.ns_1 + self.nf_1) + self.ns_1 * (self.ns_2 + self.nf_2))
 
     def count_outcomes(self, population):
         """
@@ -486,7 +484,10 @@ class SaDE(AdaptiveEvolver):
 
         if population.generation == self.initial_learning_period:
             # The learning period is over, we need to reset the counters.
-            self.ns_1, self.ns_2, self.nf_1, self.nf_2 = 0, 0, 0, 0
+            # Set the success to be 1 in order to give the algorithm time to adapt to the reset,
+            # rather than causing p = 0 right away, with no chance for adjustment in the case that this generation
+            # did not create any new solutions using strategy one.
+            self.ns_1, self.ns_2, self.nf_1, self.nf_2 = 1, 1, 0, 0
 
         # We know the UIDs of the previous population, and want to know which strategies produced new individuals.
         for i, [previous_uid, current_individual] in enumerate(zip(self.previous_pop_uids, population)):
@@ -631,7 +632,7 @@ class MDE_pBX(AdaptiveEvolver):
         """
         assert n > 0, "n must be a positive number."
 
-        d = pow(len(vals), -n)
+        d = pow(1 / len(vals), -n)
         return sum(vals) / d
 
     @staticmethod
