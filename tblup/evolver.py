@@ -132,7 +132,7 @@ class DERandOneEvolver(Evolver, BinaryCrossoverMixin):
         candidate = DERandOneEvolver.crossover(candidate, mutant, cr)
 
         if clip:
-            candidate.set_internal_genome(np.clip(candidate.get_internal_genome, 0, dimensionality - 1))
+            candidate.set_internal_genome(np.clip(candidate.get_internal_genome(), 0, dimensionality - 1))
 
         return candidate
 
