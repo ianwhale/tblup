@@ -194,14 +194,13 @@ class BlupParallelEvaluator(ParallelEvaluator):
 
         else:
             indices = random.sample(range(self.n_samples), self.n_samples)
-            n = int(len(indices) * self.TRAIN_TEST_SPLIT)
+            self.training_indices, self.testing_indices = train_test_split(indices,
+                                                                           train_size=self.TRAIN_TEST_SPLIT,
+                                                                           test_size=1 - self.TRAIN_TEST_SPLIT)
 
-            self.training_indices = indices[:n]
-            self.testing_indices = indices[n:]
-
-        n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
-        self.validation_indices = self.training_indices[n:]
-        self.training_indices = self.training_indices[:n]
+        self.training_indices, self.validation_indices = train_test_split(self.training_indices,
+                                                                          train_size=self.TRAIN_VALID_SPLIT,
+                                                                          test_size=1 - self.TRAIN_VALID_SPLIT)
 
     def blup(self, indices, train_indices, validation_indices):
         """
