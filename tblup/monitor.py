@@ -136,16 +136,18 @@ class Monitor:
 
     def save_archive(self, population):
         """
-        Save the archive out to a JSON file.
+        Save the best individual's genome to a JSON file.
         :param population: tblup.Population, the current population.
         """
         with open(self.archive_file, "r") as f:
             d = json.load(f)
 
-        with open(self.archive_file, 'w') as f:
-            best = max(population, key=lambda individual: individual.fitness)
-            d[population.generation] = [[int(i) for i in best.genome], best.fitness]
-            json.dump(d, f)
+        # Gaurd from saving the best individual twice at the end of the run.
+        if population.generation != max(d.keys()):
+            with open(self.archive_file, 'w') as f:
+                best = max(population, key=lambda individual: individual.fitness)
+                d[population.generation] = [[int(i) for i in best.genome], best.fitness]
+                json.dump(d, f)
 
     def gather_stats(self, population):
         """
