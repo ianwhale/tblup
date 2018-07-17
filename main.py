@@ -12,7 +12,7 @@ def main():
     """
     args = parser.parse_args()
 
-    PrettyPrinter(indent=4).pprint(args.__dict__)
+    PrettyPrinter(indent=4).pprint({k: v for k, v in args.__dict__.items() if not k.isupper()})
 
     random.seed(args.seed)
     numpy.random.seed(args.seed)
@@ -31,8 +31,7 @@ def main():
             ["Testing"] + population.monitor.get_row_summary(results) + ["Final"]
         )
 
-        if args.individual == "nullable":
-            print(population[int(numpy.argmax(results))].genome)
+        population.monitor.save_archive(population)
 
 
 if __name__ == '__main__':
