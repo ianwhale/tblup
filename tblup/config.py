@@ -11,7 +11,29 @@ def boollike(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
-parser = argparse.ArgumentParser(description="TBLUP Python Implementation")
+class TBLUPArgumentParser(argparse.ArgumentParser):
+    """
+    Defines constants for common names around the system and extends the real argument parser.
+    """
+    def parse_args(self, args=None, namespace=None):
+        namespace = super(TBLUPArgumentParser, self).parse_args(args=args, namespace=namespace)
+
+        namespace.SEED_STRATEGY_TOP_SNPS = "top_snps"
+
+        namespace.SEED_METRIC_P_VALUE = "p_value"
+
+        namespace.INDIVIDUAL_TYPE_RANDOM_KEYS = "randkeys"
+        namespace.INDIVIDUAL_TYPE_INDEX = "index"
+        namespace.INDIVIDUAL_TYPE_NULLABLE = "nullable"
+
+        namespace.REGRESSOR_TYPE_BLUP = "blup"
+        namespace.REGRESSOR_TYPE_INTRACV_BLUP = "intracv_blup"
+        namespace.REGRESSOR_TYPE_INTERCV_BLUP = "intercv_blup"
+        namespace.REGRESSOR_TYPE_MONTECV_BLUP = "montecv_blup"
+
+        return namespace
+
+parser = TBLUPArgumentParser(description="TBLUP Python Implementation")
 
 #
 # General
@@ -57,9 +79,9 @@ parser.add_argument("-de", "--de_strategy", default="de_rand_1", help="type of d
                                                                       "sade, mde_pbx")
 parser.add_argument("-cr", "--crossover_rate", type=float, default=0.8, help="probability of crossover")
 parser.add_argument("-mi", "--mutation_intensity", type=float, default=0.5, help="mutation intensity")
-parser.add_argument("--seeder", default=None, help="seeder to use, available types: half_half, one_elite, top_snps")
+parser.add_argument("--seeder", default=None, help="seeder to use, available types: top_snps")
 parser.add_argument("--seeder_metric", default="p_value", help="the metric the seeder will use to filter the data "
-                                                               "available types: p_value, f_score")
+                                                               "available types: p_value")
 parser.add_argument("--individual", default="randkeys", help="type of individual available types: index, nullable, "
                                                           "randkeys")
 parser.add_argument("--clip", type=boollike, default="false", help="if true, clip at the dimensionality bounds [0, d) "
