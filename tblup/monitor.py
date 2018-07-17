@@ -1,6 +1,6 @@
 import os
 import csv
-import pickle
+import json
 import numpy as np
 from os.path import join, isdir, isfile
 
@@ -46,11 +46,14 @@ class Monitor:
 
         self.results_file = temp_res + ".csv"
         self.testing_file = temp_test + ".csv"
-        self.archive_file = temp_arch + ".pkl"
+        self.archive_file = temp_arch + ".json"
 
         header = ["generation", "max_fitness", "min_fitness", "median_fitness", "mean_fitness", "stdev_fitness", "len"]
         with open(self.results_file, "w") as f:
             csv.writer(f).writerow(header)
+
+        with open(self.archive_file, "w") as f:
+            json.dump({}, f)
 
         if args.record_testing:
             with open(self.testing_file, "w") as f:
@@ -136,10 +139,13 @@ class Monitor:
         Save the archive out to a JSON file.
         :param population: tblup.Population, the current population.
         """
-        with open(self.archive_file, "wb") as f:
-            pickle.dump(population.evaluator.archive, f)
+        with open(self.archive_file, "r") as f:
+            d = json.load(f)
 
-        # TODO: think of a better way to do archiving.
+        with open(self.archive_file, 'w') as f:
+            best = max(population, key=lambda individual: individual.fitness)
+            d[population.generation] = [[int(i) for i in best.genome], best.fitness]
+            json.dump(d, f)
 
     def gather_stats(self, population):
         """
