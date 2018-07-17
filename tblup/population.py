@@ -1,4 +1,7 @@
 class Population:
+
+    ARCHIVE_INTERVAL = 100
+
     def __init__(self, evolver, evaluator, selector, individual, scheduler, length,
                  dimensionality, num_individuals, monitor, seeded_initial=None, record_testing=False):
         """
@@ -37,6 +40,7 @@ class Population:
         # Gather statistics on initial population.
         self.evaluator.evaluate(self, self.generation)
         self.monitor.report(self)
+        self.monitor.save_archive(self)
 
         if self.record_testing:
             self.monitor.report_testing(self)
@@ -60,6 +64,9 @@ class Population:
             self.evaluator.evaluate(self, self.generation)
 
         self.monitor.report(self)
+
+        if self.generation % self.ARCHIVE_INTERVAL == 0:
+            self.monitor.save_archive(self)
 
         if self.record_testing:
             self.monitor.report_testing(self)

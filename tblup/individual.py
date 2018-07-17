@@ -121,14 +121,12 @@ class RandomKeyIndividual(IndexIndividual):
     Indices into the matrix are obtained by sorted based on the value of a key.
         - I.e., we obtain the indices we want in the matrix by getting the top-N indices that would sort the genome.
     """
-    # TODO: make compatible with complexification.
-    #   - Mimic union process with real-valued vectors.
     def __init__(self, length, dimensionality, genome=None):
         """
         Constructor
         :param length: int, here we interpret this as how many indices will be selected after sorting.
         :param dimensionality: int, actual length of the individual.
-        :param genome: list, option list representing the genome.
+        :param genome: list, optional list representing the genome.
         """
         super(RandomKeyIndividual, self).__init__(length, dimensionality)
 

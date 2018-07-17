@@ -53,9 +53,6 @@ def build_kwargs(args):
 
     args.dimensionality = get_dimensionality(args)
 
-    # TODO: Implement seeding for random keys.
-    assert args.individual != "randkeys" or args.seeder is None, "Random key seeding not yet implemented."
-
     d = {
         "evolver": get_evolver(args),
         "evaluator": get_evaluator(args),
