@@ -31,6 +31,9 @@ class TBLUPArgumentParser(argparse.ArgumentParser):
         namespace.REGRESSOR_TYPE_INTERCV_BLUP = "intercv_blup"
         namespace.REGRESSOR_TYPE_MONTECV_BLUP = "montecv_blup"
 
+        namespace.FEATURE_SCHEDULING_STEPWISE = "stepwise"
+        namespace.FEATURE_SCHEDULING_ADAPTIVE = "adaptive"
+
         return namespace
 
 parser = TBLUPArgumentParser(description="TBLUP Python Implementation")

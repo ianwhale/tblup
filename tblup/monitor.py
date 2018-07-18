@@ -143,7 +143,7 @@ class Monitor:
             d = json.load(f)
 
         # Gaurd from saving the best individual twice at the end of the run.
-        if population.generation != max(d.keys()):
+        if len(d) == 0 or population.generation != max(d.keys()):
             with open(self.archive_file, 'w') as f:
                 best = max(population, key=lambda individual: individual.fitness)
                 d[population.generation] = [[int(i) for i in best.genome], best.fitness]
