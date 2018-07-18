@@ -1,8 +1,7 @@
 import abc
-import random
 import numpy as np
 from sklearn.model_selection import KFold
-from sklearn.feature_selection import SelectKBest, f_regression
+from sklearn.feature_selection import f_regression
 
 
 def get_seeder(args, evaluator):
