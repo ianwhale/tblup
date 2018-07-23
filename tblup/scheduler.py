@@ -14,6 +14,9 @@ def get_scheduler(args):
     """
     complexifier = None
 
+    if args.initial_features is None and args.feature_scheduling is not None:
+        raise AssertionError("Initial features must be provided if using feature scheduling.")
+
     if args.individual == args.INDIVIDUAL_TYPE_INDEX:
         complexifier = IndexComplexifier()
 
@@ -23,7 +26,7 @@ def get_scheduler(args):
     if complexifier is None:
         raise NotImplementedError("Complexifier for individual {} is not implemented.".format(args.individual))
 
-    if args.initial_features is None:
+    if args.feature_scheduling is None:
         return FeatureScheduler(args.initial_features, args.features, args.generations, complexifier)
 
     if args.feature_scheduling == args.FEATURE_SCHEDULING_STEPWISE:

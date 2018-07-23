@@ -36,6 +36,7 @@ class TBLUPArgumentParser(argparse.ArgumentParser):
 
         return namespace
 
+
 parser = TBLUPArgumentParser(description="TBLUP Python Implementation")
 
 #
@@ -91,3 +92,4 @@ parser.add_argument("--clip", type=boollike, default="false", help="if true, cli
                                                                   "if false, no clipping will occur")
 parser.add_argument("--record_testing", type=boollike, default="false", help="if true, record testing error in search "
                                                                              "if false, do not")
+parser.add_argument("--local_search", default=None, help="local search functionality available types: knockout")
