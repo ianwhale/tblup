@@ -182,7 +182,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         # Indexing works as the hashed frozenset of the list => fitness.
         self.archive = {}
 
-        self.h2 = h2  # Regularization parameter.
+        self.h2 = h2  # Used for the regularization parameter.
 
         # Build training and testing indices.
         data = np.load(data_path)
@@ -202,24 +202,29 @@ class BlupParallelEvaluator(ParallelEvaluator):
                                                                           train_size=self.TRAIN_VALID_SPLIT,
                                                                           test_size=1 - self.TRAIN_VALID_SPLIT)
 
-    def blup(self, indices, train_indices, validation_indices):
+    @staticmethod
+    def blup(indices, train_indices, validation_indices, data, labels, h2):
         """
         Do BLUP on the provided data. Assumes self.data is SNP data in {0, 1, 2} format.
 
         :param indices: list, list of ints corresponding to the features indices to use.
         :param train_indices: list, list of ints corresponding to which samples to use for training.
         :param validation_indices: list, list of ints corresponding to which samples to use for validation.
+        :param data: np.array, data matrix.
+        :param labels: np.array, label vector.
+        :param h2: float, heritability.
         :return: float, prediction accuracy.
         """
-        if len(indices) > self.n_samples:
+        if len(indices) > data.shape[0]:
             # Do GBLUP. The GRM will be more efficient since we have more columns than samples.
-            return self.gblup(indices, train_indices, validation_indices)
+            return BlupParallelEvaluator.gblup(indices, train_indices, validation_indices, data, labels, h2)
 
         else:
             # Do SNP-BLUP. Calculating the GRM is more costly in this case, so we just do normal ridge regression.
-            return self.snp_blup(indices, train_indices, validation_indices)
+            return BlupParallelEvaluator.snp_blup(indices, train_indices, validation_indices, data, labels, h2)
 
-    def gblup(self, indices, train_indices, validation_indices):
+    @staticmethod
+    def gblup(indices, train_indices, validation_indices, data, labels, h2):
         """
         Do GBLUP on the provided data. Assumes self.data is SNP data in {0, 1, 2} format.
 
@@ -228,20 +233,21 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param validation_indices: list, list of ints corresponding to which samples to use for validation.
         :return: float, prediction accuracy.
         """
-        G = make_grm(self.data[:, indices])
+        G = make_grm(data[:, indices])
 
-        r = (1 - self.h2) / self.h2
+        r = (1 - h2) / h2
 
         # Inverse the matrix using only the desired training samples.
         G_inv = G[train_indices, :][:, train_indices]
         G_inv.flat[:: G_inv.shape[0] + 1] += r  # Add regularization term to the diagonal of G.
         G_inv = np.linalg.inv(G_inv)
 
-        prediction = np.matmul(np.matmul(G[:, train_indices], G_inv), self.labels[train_indices])
+        prediction = np.matmul(np.matmul(G[:, train_indices], G_inv), labels[train_indices])
 
-        return abs(pearsonr(self.labels[validation_indices], prediction[validation_indices])[0])
+        return abs(pearsonr(labels[validation_indices], prediction[validation_indices])[0])
 
-    def snp_blup(self, indices, train_indices, validation_indices):
+    @staticmethod
+    def snp_blup(indices, train_indices, validation_indices, data, labels, h2):
         """
         Do SNP-BLUP on the provided data. Assumes self.data is SNP data in {0, 1, 2} format.
 
@@ -250,15 +256,15 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param validation_indices: list, list of ints corresponding to which samples to use for validation.
         :return: float, prediction accuracy.
         """
-        X = self.data[:, indices]
-        y = self.labels
+        X = data[:, indices]
+        y = labels
 
         X_train, X_valid = X[train_indices], X[validation_indices]
         y_train, y_valid = y[train_indices], y[validation_indices]
 
         p = np.mean(X_train, axis=0) / 2
         d = 2 * np.sum(p * (1 - p))
-        r = (1 - self.h2) / (self.h2 / d)
+        r = (1 - h2) / (h2 / d)
 
         X_train -= (2 * p)
         X_valid -= (2 * p)
@@ -284,7 +290,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :return: float, fitness of genome.
         """
         train_indices, validation_indices = self.train_validation_indices(generation)
-        return np.asscalar(self.blup(genome, train_indices, validation_indices))
+        return np.asscalar(self.blup(genome, train_indices, validation_indices, self.data, self.labels, self.h2))
 
     def __getstate__(self):
         """
@@ -364,7 +370,8 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param genome: list, list of indexes into data matrix.
         :return: float, testing accuracy feature subset.
         """
-        return self.blup(genome, self.training_indices, self.testing_indices)
+        return BlupParallelEvaluator.blup(genome, self.training_indices,
+                                          self.testing_indices, self.data, self.labels, self.h2)
 
 
 class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):

@@ -34,6 +34,8 @@ class TBLUPArgumentParser(argparse.ArgumentParser):
         namespace.FEATURE_SCHEDULING_STEPWISE = "stepwise"
         namespace.FEATURE_SCHEDULING_ADAPTIVE = "adaptive"
 
+        namespace.LOCAL_SEARCH_KNOCKOUT = "knockout"
+
         return namespace
 
 
