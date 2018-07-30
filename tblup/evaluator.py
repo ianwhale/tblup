@@ -458,9 +458,10 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
         :return: float, fitness of genome. Average Pearson's R over the folds.
         """
         fitness_sum = 0
+        x, y = self.data, self.labels
         for k in range(self.n_folds):
             train_indices, validation_indices = self.train_validation_indices(k)
-            fitness_sum += self.blup(genome, train_indices, validation_indices)
+            fitness_sum += self.blup(genome, train_indices, validation_indices, x, y, self.h2)
 
         return np.asscalar(fitness_sum / self.n_folds)
 
