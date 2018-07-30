@@ -105,7 +105,10 @@ class Monitor:
             option_list.append(str(args.individual))
 
         if not args.clip:
-            option_list.append(str("noclip"))
+            option_list.append("noclip")
+
+        if args.local_search is not None:
+            option_list.append(str(args.local_search))
 
         return "_".join(option_list)
 
