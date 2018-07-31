@@ -4,6 +4,7 @@ from tblup.config import parser
 from pprint import PrettyPrinter
 from tblup.utils import build_kwargs
 from tblup.population import Population
+from tblup.local import get_local_search
 
 
 def main():
@@ -32,6 +33,11 @@ def main():
         )
 
         population.monitor.save_archive(population)
+
+    if args.local_search is not None:
+        genome, fitness = get_local_search(args, population).search()
+
+        population.monitor.report_local(genome, fitness)
 
 
 if __name__ == '__main__':
