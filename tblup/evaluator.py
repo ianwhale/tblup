@@ -370,7 +370,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param genome: list, list of indexes into data matrix.
         :return: float, testing accuracy feature subset.
         """
-        return BlupParallelEvaluator.blup(genome, self.training_indices,
+        return BlupParallelEvaluator.blup(genome, np.concatenate((self.training_indices, self.validation_indices)),
                                           self.testing_indices, self.data, self.labels, self.h2)
 
 
