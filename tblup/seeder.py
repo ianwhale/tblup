@@ -157,7 +157,7 @@ class SeedStrategy(abc.ABC):
         for train, _ in KFold(n_splits=self.N_SPLITS).split(X):
             scores += self.metric(X[train], y[train].ravel())
 
-        return np.argsort(scores, axis=0)
+        return np.flip(np.argsort(scores, axis=0), 0)  # Descending order.
 
 
 class TopSNPsSeedStrategy(SeedStrategy):
