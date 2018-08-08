@@ -154,7 +154,7 @@ class SeedStrategy(abc.ABC):
         # Cross-validate the scoring metric on the training data only to not contaminate the dataset.
         #
         scores = np.zeros(X.shape[1])
-        for train, _ in KFold(n_splits=self.N_SPLITS).split(X):
+        for train, _ in KFold(n_splits=self.N_SPLITS).split(self.training_indices):
             scores += self.metric(X[train], y[train].ravel())
 
         return np.flip(np.argsort(scores, axis=0), 0)  # Descending order.
