@@ -360,7 +360,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
 
         accs = []
         for res in results:
-            accs.append(res.get()[0])
+            accs.append(res.get())
 
         return accs
 
