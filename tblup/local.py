@@ -73,4 +73,4 @@ class KnockoutLocalSearch(LocalSearch):
                 # Change the index back, we don't want to exclude this one.
                 mask[i] = True
 
-        return genome[mask], np.asscalar(best_fitness)
+        return genome[mask], best_fitness
