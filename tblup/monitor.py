@@ -91,7 +91,9 @@ class Monitor:
 
         if args.feature_scheduling is not None:
             option_list.append(str(args.feature_scheduling))
-            option_list.append("i" + str(args.initial_features))
+
+            if args.feature_scheduling != args.FEATURE_SCHEDULING_PROGRESSIVE_CUTS:
+                option_list.append("i" + str(args.initial_features))
 
         option_list.append("f" + str(args.features))
         option_list.append("n" + str(args.population_size))

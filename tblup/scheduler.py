@@ -12,10 +12,45 @@ def get_scheduler(args):
     :param args: object, argparse.Namespace.
     :return: tblup.FeatureScheduler
     """
+    if args.feature_scheduling is None:
+        return FeatureScheduler(args.initial_features, args.features, args.generations, Complexifier())
+
+    if args.feature_scheduling == args.FEATURE_SCHEDULING_PROGRESSIVE_CUTS:
+        return cuts_logic(args)
+
+    elif args.feature_scheduling in [args.FEATURE_SCHEDULING_ADAPTIVE, args.FEATURE_SCHEDULING_STEPWISE]:
+        return complexifier_logic(args)
+
+
+def cuts_logic(args):
+    """
+    Holds the logic for checking the args for a progressive cuts scheme.
+    :param args: object, argparse.Namespace
+    :return: tblup.FeatureScheduler
+    """
     complexifier = None
 
-    if args.initial_features is None and args.feature_scheduling is not None:
-        raise AssertionError("Initial features must be provided if using feature scheduling.")
+    if args.individual == args.INDIVIDUAL_TYPE_RANDOM_KEYS:
+        complexifier = RandomKeyCuts()
+
+    if complexifier is None:
+        raise NotImplementedError("Complexifier for individual {} is not implemented.".format(args.individual))
+
+    if args.feature_scheduling == args.FEATURE_SCHEDULING_PROGRESSIVE_CUTS:
+        return ProgressiveCutsScheduler(args.features * args.cuts_multiplier,
+                                        args.features, args.generations, complexifier)
+
+
+def complexifier_logic(args):
+    """
+    Holds the logic for checking the args for a complexification scheme.
+    :param args: object, argparse.Namespace
+    :return: tblup.FeatureScheduler
+    """
+    complexifier = None
+
+    if args.initial_features is None:
+        raise AssertionError("Initial features must be provided if using a complexification scheme.")
 
     if args.individual == args.INDIVIDUAL_TYPE_INDEX:
         complexifier = IndexComplexifier()
@@ -25,9 +60,6 @@ def get_scheduler(args):
 
     if complexifier is None:
         raise NotImplementedError("Complexifier for individual {} is not implemented.".format(args.individual))
-
-    if args.feature_scheduling is None:
-        return FeatureScheduler(args.initial_features, args.features, args.generations, complexifier)
 
     if args.feature_scheduling == args.FEATURE_SCHEDULING_STEPWISE:
         return StepwiseScheduler(args.initial_features, args.features, args.generations, complexifier)
@@ -159,13 +191,12 @@ class AdaptiveScheduler(StepwiseScheduler):
         return super().should_step(population, generation)
 
 
-class Complexifier(abc.ABC):
+class Complexifier():
     """
     Complexifier service to allow for complexifying different types of individuals.
     """
-    @abc.abstractmethod
     def step(self, scheduler, population):
-        raise NotImplementedError()
+        pass
 
 
 class RandomKeyComplexifier(Complexifier):
@@ -248,3 +279,66 @@ class IndexComplexifier(Complexifier):
 
             population.population = next_pop
 
+
+class ProgressiveCutsScheduler(FeatureScheduler):
+    """
+    Progressive cuts. Features progressively removed from the subset.
+    Starts at m * initial_features and reduces by initial_features at regular intervals.
+    """
+    def __init__(self, initial_features, final_features, generations, complexifier, delay=100):
+        """
+        Constructor.
+        :param initial_features: int, initial features, should be m * final_features.
+        :param final_features: int, the desired feature subset size.
+        :param generations: int, total number of generations.
+        :param complexifier: tblup.Complexifier.
+        :param delay: int, see comment below.
+        """
+        super(ProgressiveCutsScheduler, self).__init__(initial_features, final_features, generations, complexifier)
+
+        assert self.initial > self.final, "Initial features must be greater than final."
+
+        self.multiplier = initial_features // final_features
+        self.step_interval = self.generations // self.multiplier
+
+        # Constant for how close to do a step to the last generation.
+        # Causes the first step to occur at step_interval - delay generation.
+        if delay > self.step_interval:
+            self.delay = self.step_interval
+        else:
+            self.delay = delay
+
+    def should_step(self, population, generation):
+        """
+        Should step every time we reach a multiple of the step interval.
+        :param population: tblup.Population.
+        :param generation: int, current generation.
+        :return: bool, True if we should step.
+        """
+        return True
+        g = generation + self.delay
+        return g != self.delay and g % self.step_interval == 0
+
+    def step(self, population):
+        return self.complexifier.step(self, population)
+
+
+class RandomKeyCuts(Complexifier):
+    """
+    Random key complexification implementation for progressive cuts feature scheduling.
+    """
+    def step(self, scheduler, population):
+        for individual in population:
+            new_length = individual.length - scheduler.multiplier
+            if new_length < scheduler.final:
+                individual.length = scheduler.final
+            else:
+                individual.length = new_length
+
+
+class IndexCuts(Complexifier):
+    """
+    Index individual complexification implementation for cuts feature scheduling.
+    """
+    # TODO: implement (not be possible without local search at each step).
+    ...

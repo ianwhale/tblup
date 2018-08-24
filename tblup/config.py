@@ -33,6 +33,7 @@ class TBLUPArgumentParser(argparse.ArgumentParser):
 
         namespace.FEATURE_SCHEDULING_STEPWISE = "stepwise"
         namespace.FEATURE_SCHEDULING_ADAPTIVE = "adaptive"
+        namespace.FEATURE_SCHEDULING_PROGRESSIVE_CUTS = "progressive_cuts"
 
         namespace.LOCAL_SEARCH_KNOCKOUT = "knockout"
 
@@ -79,7 +80,9 @@ parser.add_argument("--features", type=int, default=100, help="number of feature
 parser.add_argument("--initial_features", type=int, default=None, help="features in initial population")
 parser.add_argument("--feature_scheduling", default=None,
                     help="scheduling scheme for increasing features (used if initial features is supplied)"
-                         "available types: stepwise, adaptive")
+                         "available types: stepwise, adaptive, progressive_cuts")
+parser.add_argument("--cuts_multiplier", type=int, default=10,
+                    help="multiplier for progressive_cuts scheduling strategy")
 parser.add_argument("-de", "--de_strategy", default="de_rand_1", help="type of differential evolution scheme"
                                                                       "available types: de_rand_1, de_currenttobest_1, "
                                                                       "sade, mde_pbx")
