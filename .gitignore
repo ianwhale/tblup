@@ -240,3 +240,4 @@ results/
 *.ipynb_checkpoints/
 plotting/
 comparisons/
+qsubs/

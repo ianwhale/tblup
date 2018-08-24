@@ -315,7 +315,6 @@ class ProgressiveCutsScheduler(FeatureScheduler):
         :param generation: int, current generation.
         :return: bool, True if we should step.
         """
-        return True
         g = generation + self.delay
         return g != self.delay and g % self.step_interval == 0
 
