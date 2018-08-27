@@ -59,7 +59,7 @@ def build_kwargs(args):
         "selector": DifferentialEvolutionSelector(),
         "individual": get_individual(args),
         "scheduler": get_scheduler(args),
-        "length": args.initial_features if args.initial_features else args.features,
+        "length": features_logic(args),
         "dimensionality": args.dimensionality,
         "num_individuals": args.population_size,
         "monitor": Monitor(args),
@@ -69,6 +69,18 @@ def build_kwargs(args):
     d["seeded_initial"] = get_seeder(args, d["evaluator"])
 
     return d
+
+
+def features_logic(args):
+    """
+    Some logic to handle initial features
+    :param args: object, argpase.Namespace
+    :return: int, number of features in initial population.
+    """
+    if args.feature_scheduling == args.FEATURE_SCHEDULING_PROGRESSIVE_CUTS:
+        return args.features * args.cuts_multiplier
+    else:
+        return args.initial_features if args.initial_features else args.features
 
 
 def get_dimensionality(args):
