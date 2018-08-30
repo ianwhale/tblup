@@ -28,6 +28,8 @@ class Monitor:
         if not isdir(results):
             os.mkdir(results)
 
+        self.results = results
+
         results_file = join(results, str(args.seed).zfill(3) + "_results")
         testing_file = join(results, str(args.seed).zfill(3) + "_results_testing")
         archive_file = join(results, str(args.seed).zfill(3) + "_archive")
@@ -212,3 +214,29 @@ class Monitor:
             round(mean_fitness, self.ROUND_DECIMALS),
             round(stdev_fitness, self.ROUND_DECIMALS),
         ]
+
+    def save_indices(self, evaluator, args):
+        """
+        Save the train, validation, and test indices to a file.
+        :param evaluator: tblup.Evaluator.
+        :param args: object, argparse.Namespace
+        """
+        unique_fid = self.results_file.split(".")[-2].split("_")[-1]  # Unique file id inside the output file.
+
+        name_as_list = [
+            str(args.seed).zfill(3),
+            None,
+            "indices"
+        ]
+
+        if unique_fid.isnumeric():
+            name_as_list.append(unique_fid)
+
+        name_as_list[1] = "train"
+        np.save(os.path.join(self.results, "_".join(name_as_list)), evaluator.training_indices)
+
+        name_as_list[1] = "validation"
+        np.save(os.path.join(self.results, "_".join(name_as_list)), evaluator.validation_indices)
+
+        name_as_list[1] = "testing"
+        np.save(os.path.join(self.results, "_".join(name_as_list)), evaluator.testing_indices)

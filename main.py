@@ -24,6 +24,8 @@ def main():
     with evaluator:
         population = Population(**kwargs)
 
+        population.monitor.save_indices(evaluator, args)
+
         for gen in range(1, args.generations + 1):
             population.do_generation()
 
