@@ -13,6 +13,14 @@ class Monitor:
     ROUND_DECIMALS = 4
     ADAPTIVE_STRATEGIES = ["sade", "mde_pbx"]
 
+    GENERATION_INDEX = 0
+    MAX_FITNESS_INDEX = 1
+    MIN_FITNESS_INDEX = 2
+    MEDIAN_FITNESS_INDEX = 3
+    MEAN_FITNESS_INDEX = 4
+    STDEV_FITNESS_INDEX = 5
+    AVERAGE_LENGTH_INDEX = 6
+
     def __init__(self, args):
         """
         Constructor.

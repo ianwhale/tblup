@@ -27,7 +27,10 @@ def main():
         population.monitor.save_indices(evaluator, args)
 
         for gen in range(1, args.generations + 1):
-            population.do_generation()
+            should_stop = population.do_generation()
+
+            if should_stop:
+                break
 
         results = evaluator.evaluate_testing(population)
         population.monitor.write(

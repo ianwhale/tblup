@@ -105,6 +105,33 @@ def id_gen():
         i = i + 1
 
 
+def get_stop_condition(condition_string, stats_row, monitor):
+    """
+    Gets the appropriate value from the row of statistics.
+
+    :param condition_string: string,
+    :param stats_row: list, list of statistcs gathered in the monitor.
+    :param monitor: tblup.Monitor, used for index constants.
+    :return: number, the appropriate number from the statistics row.
+    """
+    if condition_string == "max":
+        val = stats_row[monitor.MAX_FITNESS_INDEX]
+
+    elif condition_string == "min":
+        val = stats_row[monitor.MIN_FITNESS_INDEX]
+
+    elif condition_string == "median":
+        val = stats_row[monitor.MEDIAN_FITNESS_INDEX]
+
+    elif condition_string == "mean":
+        val = stats_row[monitor.MEAN_FITNESS_INDEX]
+
+    else:
+        raise NotImplementedError("Heritability stopping condition {} not implemented.".format(condition_string))
+
+    return val
+
+
 # Hacky way to get unique ids across the whole program.
 # Individuals aren't created in parallel, if they are, this won't work.
 uid = id_gen()
