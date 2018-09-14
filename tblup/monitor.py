@@ -122,6 +122,9 @@ class Monitor:
         if args.local_search is not None:
             option_list.append(str(args.local_search))
 
+        if args.h2_stop_condition is not None:
+            option_list.append("stop_on_" + args.h2_stop_condition)
+
         return "_".join(option_list)
 
     def write(self, row):
