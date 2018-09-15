@@ -25,6 +25,7 @@ class TBLUPArgumentParser(argparse.ArgumentParser):
         namespace.INDIVIDUAL_TYPE_RANDOM_KEYS = "randkeys"
         namespace.INDIVIDUAL_TYPE_INDEX = "index"
         namespace.INDIVIDUAL_TYPE_NULLABLE = "nullable"
+        namespace.INDIVIDUAL_TYPE_COEVOLE = "coevolve"
 
         namespace.REGRESSOR_TYPE_BLUP = "blup"
         namespace.REGRESSOR_TYPE_INTRACV_BLUP = "intracv_blup"
@@ -76,7 +77,8 @@ parser.add_argument("--cv_folds", type=int, default=5, help="number of folds to 
 #
 parser.add_argument("--generations", type=int, default=100, help="number of generations to run")
 parser.add_argument("--population_size", type=int, default=50, help="number of individuals in population")
-parser.add_argument("--features", type=int, default=100, help="number of features to select")
+parser.add_argument("--features", type=int, default=100, help="number of features to select,"
+                                                              " ignored when using coevolve individuals")
 parser.add_argument("--initial_features", type=int, default=None, help="features in initial population")
 parser.add_argument("--feature_scheduling", default=None,
                     help="scheduling scheme for increasing features (used if initial features is supplied)"
@@ -92,9 +94,9 @@ parser.add_argument("--seeder", default=None, help="seeder to use, available typ
 parser.add_argument("--seeder_metric", default="p_value", help="the metric the seeder will use to filter the data "
                                                                "available types: p_value")
 parser.add_argument("--individual", default="randkeys", help="type of individual available types: index, nullable, "
-                                                          "randkeys")
+                                                             "randkeys, coevolve")
 parser.add_argument("--clip", type=boollike, default="false", help="if true, clip at the dimensionality bounds [0, d) "
-                                                                  "if false, no clipping will occur")
+                                                                   "if false, no clipping will occur")
 parser.add_argument("--record_testing", type=boollike, default="false", help="if true, record testing error in search "
                                                                              "if false, do not")
 parser.add_argument("--local_search", default=None, help="local search functionality available types: knockout")

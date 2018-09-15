@@ -27,9 +27,9 @@ def main():
         population.monitor.save_indices(evaluator, args)
 
         for gen in range(1, args.generations + 1):
-            should_stop = population.do_generation()
+            should_continue = population.do_generation()
 
-            if should_stop:
+            if not should_continue:
                 break
 
         results = evaluator.evaluate_testing(population)

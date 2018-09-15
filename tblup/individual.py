@@ -11,14 +11,17 @@ def get_individual(args):
     :param args: argparse.Namespace
     :return: callable, tblup.Individual constructor.
     """
-    if args.individual == "index":
+    if args.individual == args.INDIVIDUAL_TYPE_INDEX:
         return IndexIndividual
 
-    if args.individual == "nullable":
+    if args.individual == args.INDIVIDUAL_TYPE_NULLABLE:
         return NullableIndexIndividual
 
-    if args.individual == "randkeys":
+    if args.individual == args.INDIVIDUAL_TYPE_RANDOM_KEYS:
         return RandomKeyIndividual
+
+    if args.individual == args.INDIVIDUAL_TYPE_COEVOLE:
+        return CoevolutionIndividual
 
     raise NotImplementedError("Individual with config option {} not implemented.".format(args.individual))
 
@@ -154,6 +157,48 @@ class RandomKeyIndividual(IndexIndividual):
         :param new_size: int
         """
         self.length = new_size
+
+
+class CoevolutionIndividual(RandomKeyIndividual):
+    """
+    Individual that actively evolves the number of features to select during the search.
+    """
+    def __init__(self, length, dimensionality, genome=None):
+        """
+        Constructor
+        :param length: int, here we interpret this as how many indices will be selected after sorting.
+        :param dimensionality: int, actual length of the individual.
+        :param genome: list, optional list representing the genome.
+        """
+        super(CoevolutionIndividual, self).__init__(length, dimensionality, genome=genome)
+
+        self.num_features = np.random.randint(20, 2000)  # TODO: Make these hyperparameters.
+
+    def __len__(self):
+        return self.num_features
+
+    def get_internal_genome(self):
+        """
+        Override to include the number of features in the evolution process.
+        :return: np.array.
+        """
+        return np.append(self._genome, self.num_features)
+
+    def set_internal_genome(self, genome):
+        """
+        Override to peel off the last element for the num_features member.
+        :param genome:
+        :return:
+        """
+        if len(genome) + 1 == self.dimensionality:
+            self.num_features = genome[-1]
+            self._genome = np.delete(genome, -1)
+
+        elif len(genome) == self.dimensionality:
+            self._genome = genome
+
+        else:
+            raise RuntimeError("Genome of invalid length, must be dimensionality d or d + 1.")
 
 
 class NullableIndexIndividual(IndexIndividual):

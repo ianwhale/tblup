@@ -34,7 +34,7 @@ def get_seeder(args, evaluator):
     if args.individual == args.INDIVIDUAL_TYPE_INDEX or args.individual == args.INDIVIDUAL_TYPE_NULLABLE:
         seeder = IndexSeeder(strategy, length)
 
-    elif args.individual == args.INDIVIDUAL_TYPE_RANDOM_KEYS:
+    elif args.individual in [args.INDIVIDUAL_TYPE_RANDOM_KEYS, args.INDIVIDUAL_TYPE_COEVOLE]:
         seeder = RandomKeySeeder(strategy, length, args.dimensionality)
 
     if seeder is None:
