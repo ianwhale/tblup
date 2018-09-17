@@ -145,10 +145,10 @@ class RandomKeyIndividual(IndexIndividual):
 
     @property
     def genome(self):
-        return np.argsort(self._genome)[-self.length:]
+        return np.argsort(self._genome)[-int(self.length):]
 
     def __len__(self):
-        return self.length
+        return int(self.length)
 
     def fill(self, new_size):
         """
@@ -172,26 +172,22 @@ class CoevolutionIndividual(RandomKeyIndividual):
         """
         super(CoevolutionIndividual, self).__init__(length, dimensionality, genome=genome)
 
-        self.num_features = np.random.randint(20, 2000)  # TODO: Make these hyperparameters.
-
-    def __len__(self):
-        return self.num_features
+        self.length = np.random.randint(20, 2000)  # TODO: Make these hyperparameters.
 
     def get_internal_genome(self):
         """
         Override to include the number of features in the evolution process.
         :return: np.array.
         """
-        return np.append(self._genome, self.num_features)
+        return np.append(self._genome, self.length)
 
     def set_internal_genome(self, genome):
         """
         Override to peel off the last element for the num_features member.
         :param genome:
-        :return:
         """
-        if len(genome) + 1 == self.dimensionality:
-            self.num_features = genome[-1]
+        if len(genome) == self.dimensionality + 1:
+            self.length = genome[-1]
             self._genome = np.delete(genome, -1)
 
         elif len(genome) == self.dimensionality:

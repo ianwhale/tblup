@@ -73,8 +73,10 @@ class BinaryCrossoverMixin(CrossoverMixin):
         :param cr: float, crossover rate.
         :return: tblup.Individual
         """
-        fixed = random.randrange(0, len(target.get_internal_genome()))
-        crossover = np.random.rand(len(target.get_internal_genome())) < cr
+        genome_len = len(target.get_internal_genome())
+
+        fixed = random.randrange(0, genome_len)
+        crossover = np.random.rand(genome_len) < cr
         crossover[fixed] = True
         target.set_internal_genome(np.where(crossover, mutant, target.get_internal_genome()))
 
