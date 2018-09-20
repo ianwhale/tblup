@@ -152,7 +152,7 @@ class RandomKeyIndividual(IndexIndividual):
 
     def fill(self, new_size):
         """
-        "Fills" the genome with new indices. Ideally we'd do random indices, but we technically the next largest entries
+        "Fills" the genome with new indices. Ideally we'd do random indices, but we instead add the next largest entries
         in the sorted genome will be the "next best" found in the search. So we just add those.
         :param new_size: int
         """
