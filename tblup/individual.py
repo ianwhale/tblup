@@ -187,7 +187,7 @@ class CoevolutionIndividual(RandomKeyIndividual):
         :param genome:
         """
         if len(genome) == self.dimensionality + 1:
-            self.length = genome[-1]
+            self.length = genome[-1] if genome[-1] > 1 else 1  # Protect from lengths <= 0.
             self._genome = np.delete(genome, -1)
 
         elif len(genome) == self.dimensionality:
