@@ -1,4 +1,5 @@
 from math import sqrt
+from sys import maxsize
 from tblup.utils import get_stop_condition
 
 
@@ -42,7 +43,12 @@ class Population:
         self.record_testing = record_testing
         self.dimensionality = dimensionality
         self.h2_stop_condition = h2_stop_condition
-        self.h2_threshold = self.evaluator.h2 / sqrt(self.evaluator.h2)
+
+        if hasattr(self.evaluator, "h2"):
+            self.h2_threshold = self.evaluator.h2 / sqrt(self.evaluator.h2)
+        else:
+            self.h2_threshold = maxsize
+
         self.generation = 0
 
         # Gather statistics on initial population.
