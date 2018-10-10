@@ -79,7 +79,7 @@ parser.add_argument("--cv_folds", type=int, default=5, help="number of folds to 
 parser.add_argument("--generations", type=int, default=100, help="number of generations to run")
 parser.add_argument("--population_size", type=int, default=50, help="number of individuals in population")
 parser.add_argument("--features", type=int, default=100, help="number of features to select,"
-                                                              " ignored when using coevolve individuals")
+                                                              " treated as initial length in coevolution individuals.")
 parser.add_argument("--initial_features", type=int, default=None, help="features in initial population")
 parser.add_argument("--feature_scheduling", default=None,
                     help="scheduling scheme for increasing features (used if initial features is supplied)"

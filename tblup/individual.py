@@ -172,7 +172,7 @@ class CoevolutionIndividual(RandomKeyIndividual):
         """
         super(CoevolutionIndividual, self).__init__(length, dimensionality, genome=genome)
 
-        self.length = 250  # TODO: Make these hyperparameters.
+        self.length = random.randint(int(length * 0.9), int(length * 1.1))
 
     def get_internal_genome(self):
         """
