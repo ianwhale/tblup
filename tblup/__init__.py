@@ -9,3 +9,4 @@ from tblup.scheduler import *
 from tblup.selector import *
 from tblup.seeder import *
 from tblup.local import *
+from tblup.stop_condition import *

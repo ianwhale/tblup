@@ -69,8 +69,8 @@ parser.add_argument("--pca_outliers", type=boollike, default="false", help="only
 #
 parser.add_argument("--regressor", default="blup", help="type of regression scheme, available types: "
                                                         "blup, intracv_blup, intercv_blup, montecv_blup")
-parser.add_argument("--heritability", type=float, default=0.16, help="narrow-sense heritability of trait "
-                                                                     "being predicted")
+parser.add_argument("--heritability", type=float, default=0.4, help="narrow-sense heritability of trait "
+                                                                    "being predicted")
 parser.add_argument("--cv_folds", type=int, default=5, help="number of folds to use in cross-validation")
 
 #
@@ -101,5 +101,7 @@ parser.add_argument("--clip", type=boollike, default="false", help="if true, cli
 parser.add_argument("--record_testing", type=boollike, default="false", help="if true, record testing error in search "
                                                                              "if false, do not")
 parser.add_argument("--local_search", default=None, help="local search functionality available types: knockout")
-parser.add_argument("--h2_stop_condition", default=None, help="stopping condition based on the h2/sqrt(h2), available"
-                                                              " options: max, min, median, mean")
+parser.add_argument("--stop_condition", default=None, help="stopping condition. h2 prefixes are "
+                                                           "based on the h2/sqrt(h2) threshold. Available options: "
+                                                           "h2_max, h2_min, h2_median, h2_mean")
+parser.add_argument("--h2_alpha", default=0.0, type=float, help="Changes h2/sqrt(h2) threshold to be * 1.alpha larger")

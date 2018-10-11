@@ -1,6 +1,5 @@
 from math import sqrt
 from sys import maxsize
-from tblup.utils import get_stop_condition
 
 
 class Population:
@@ -8,8 +7,8 @@ class Population:
     ARCHIVE_INTERVAL = 100
 
     def __init__(self, evolver, evaluator, selector, individual, scheduler, length,
-                 dimensionality, num_individuals, monitor, seeded_initial=None, record_testing=False,
-                 h2_stop_condition=None):
+                 dimensionality, num_individuals, monitor, stop_condition,
+                 seeded_initial=None, record_testing=False):
         """
         Constructor.
         :param evolver: tblup.Evolver.
@@ -21,9 +20,9 @@ class Population:
         :param dimensionality: int, dimensionality of the problem.
         :param num_individuals: int, number of individuals in the population.
         :param monitor: tblup.Monitor, gathers population statistics.
+        :param stop_condition: string, stopping condition class.
         :param seeded_initial: iterable, tblup.Individuals with some desirable initial properties.
         :param record_testing: bool, True to record testing accuracy during search.
-        :param h2_stop_condition: string, see tblup.utils.translate_stop_condition
         """
         self.evolver = evolver
         self.monitor = monitor
@@ -42,12 +41,7 @@ class Population:
 
         self.record_testing = record_testing
         self.dimensionality = dimensionality
-        self.h2_stop_condition = h2_stop_condition
-
-        if hasattr(self.evaluator, "h2"):
-            self.h2_threshold = self.evaluator.h2 / sqrt(self.evaluator.h2)
-        else:
-            self.h2_threshold = maxsize
+        self.stop_condition = stop_condition
 
         self.generation = 0
 
@@ -91,9 +85,6 @@ class Population:
 
         self.generation += 1
 
-        if self.h2_stop_condition is not None:
-            if get_stop_condition(self.h2_stop_condition, stats, self.monitor) > self.h2_threshold:
-                return False
-
-        return True
+        # Should we continue? (I.e. should we not stop)
+        return not self.stop_condition.should_stop(self, stats)
 
