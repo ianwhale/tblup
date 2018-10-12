@@ -126,7 +126,7 @@ class Monitor:
             option_list.append("stop_" + args.stop_condition)
 
             if args.h2_alpha != 0.0:
-                option_list.append("alpha" + str(args.h2_alpha))
+                option_list.append("alpha" + str(args.h2_alpha).replace(".", ""))
 
         return "_".join(option_list)
 
