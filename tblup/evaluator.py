@@ -48,6 +48,22 @@ def get_evaluator(args):
 #################################################
 
 
+# Global dictionary to hold variables and their shapes (copied to all processes).
+var_dict = {}  # If there's a better way without using MPI please inform me.
+
+
+def init_worker(geno, geno_shape, pheno):
+    """
+    Initialize the global variable dictionary.
+    :param geno: np.array, genotype matrix.
+    :param geno_shape: tuple, (rows, cols)
+    :param pheno: np.array, phenotype vector, shape: (rows,).
+    """
+    var_dict['geno'] = geno
+    var_dict['geno_shape'] = geno_shape
+    var_dict['pheno'] = pheno
+
+
 class Evaluator(abc.ABC):
     """
     Abstract base class for Evaluators.
@@ -99,48 +115,47 @@ class ParallelEvaluator(Evaluator):
             If the argument is -1, MPEvaluator will use the max parallelism specified by mp.cpu_count()
         """
         super(ParallelEvaluator, self).__init__(data_path, labels_path)
-
-        # IDs to use in the sharearray identifiers, process safe for use in shared environments.
-        self.data_id = "data" + str(os.getpid())
-        self.labels_id = "labels" + str(os.getpid())
-
         self.n_procs = n_procs
-
         self.pool = None
 
     def __enter__(self):
         """
         Create the multiprocessing pool.
         Only happens once to reduce overhead.
+        Credit:
+            https://research.wmz.ninja/articles/2018/03/on-sharing-large-arrays-when-using-pythons-multiprocessing.html
         """
-        self.pool = mp.Pool(processes=mp.cpu_count() if self.n_procs == -1 else self.n_procs)
+        geno_data = np.load(self.data_path)
+        geno_shape = geno_data.shape
+        geno = mp.RawArray('d', geno_shape[0] * geno_shape[1])
+        geno_np = np.frombuffer(geno).reshape(geno_shape)
+        np.copyto(geno_np, geno_data)
+
+        pheno_data = np.load(self.labels_path)
+        pheno = mp.RawArray('d', len(pheno_data))
+        pheno_np = np.frombuffer(pheno)
+        np.copyto(pheno_np, pheno_data)
+
+        self.pool = mp.Pool(processes=mp.cpu_count() if self.n_procs == -1 else self.n_procs,
+                            initializer=init_worker,
+                            initargs=(geno, geno_shape, pheno))
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Free the shared memory allocated in evaluations and close the processing pool.
-        :param exc_type:
-        :param exc_val:
-        :param exc_tb:
-        :return:
-        """
-        sa.free(self.data_id)
-        sa.free(self.labels_id)
+        pass
 
     @property
     def data(self):
         """
-        Handle loading the data into shared memory if needed.
         :return: np.ndarray
         """
-        return sa.cache(self.data_id, np.load(self.data_path), verbose=False)
+        return np.frombuffer(var_dict['geno']).reshape(var_dict['geno_shape'])
 
     @property
     def labels(self):
         """
-        Handle loading the labels into shared memory if needed.
         :return: np.ndarray
         """
-        return sa.cache(self.labels_id, np.load(self.labels_path), verbose=False)
+        return np.frombuffer(var_dict['pheno'])
 
     def genomes_to_evaluate(self, population):
         raise NotImplementedError()
