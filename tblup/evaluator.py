@@ -460,6 +460,41 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
         super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
                                                             n_folds=n_folds, splitter=splitter)
 
+    def evaluate(self, population, generation):
+        """
+        Do BLUP, but n_folds times.
+        :param population: tblup.Population
+        :param generation: int, current generation.
+        :return: tblup.Population.
+        """
+        blup_kwargs = {
+            'h2': self.h2
+        }
+
+        to_evaluate, indices = self.genomes_to_evaluate(population)
+        sums = {i: 0 for i in indices}
+
+        for k in range(self.n_folds):
+            train_indices, validation_indices = self.train_validation_indices(k)
+            blup_kwargs['train_indices'] = train_indices
+            blup_kwargs['validation_indices'] = validation_indices
+
+            for genome, index in zip(to_evaluate, indices):
+                blup_kwargs['indices'] = genome
+                self.in_queue.put((index, blup_kwargs))
+
+            results = []
+            while len(results) != len(to_evaluate):
+                results.append(self.out_queue.get())
+
+            for index, fitness in results:
+                sums[index] += fitness
+
+        for index, fitness_sum in sums.items():
+            population[index].fitness = fitness_sum / self.n_folds
+
+        return population
+
     def __call__(self, genome, generation):
         """
         Call magic method, assign fitness to genome.
