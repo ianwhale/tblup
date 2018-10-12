@@ -99,48 +99,33 @@ class ParallelEvaluator(Evaluator):
             If the argument is -1, MPEvaluator will use the max parallelism specified by mp.cpu_count()
         """
         super(ParallelEvaluator, self).__init__(data_path, labels_path)
-
-        # IDs to use in the sharearray identifiers, process safe for use in shared environments.
-        self.data_id = "data" + str(os.getpid())
-        self.labels_id = "labels" + str(os.getpid())
-
         self.n_procs = n_procs
-
-        self.pool = None
+        self.in_queue = mp.Queue()
+        self.out_queue = mp.Queue()
+        self.consumers = []
 
     def __enter__(self):
         """
         Create the multiprocessing pool.
         Only happens once to reduce overhead.
+        Credit:
+            https://stonesoupprogramming.com/2017/09/11/python-multiprocessing-producer-consumer-pattern/comment-page-1/
         """
-        self.pool = mp.Pool(processes=mp.cpu_count() if self.n_procs == -1 else self.n_procs)
+        for _ in range(self.n_procs):
+            p = mp.Process(target=self.worker, args=(self.in_queue, self.out_queue, self.data_path, self.labels_path))
+            p.daemon = True
+            p.start()
+            self.consumers.append(p)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Free the shared memory allocated in evaluations and close the processing pool.
-        :param exc_type:
-        :param exc_val:
-        :param exc_tb:
-        :return:
-        """
-        sa.free(self.data_id)
-        sa.free(self.labels_id)
+        for c in self.consumers:
+            c.terminate()
 
-    @property
-    def data(self):
-        """
-        Handle loading the data into shared memory if needed.
-        :return: np.ndarray
-        """
-        return sa.cache(self.data_id, np.load(self.data_path), verbose=False)
-
-    @property
-    def labels(self):
-        """
-        Handle loading the labels into shared memory if needed.
-        :return: np.ndarray
-        """
-        return sa.cache(self.labels_id, np.load(self.labels_path), verbose=False)
+    @staticmethod
+    @abc.abstractmethod
+    def worker(in_queue, out_queue, data_path, labels_path):
+        """Worker static and abstract class."""
+        pass
 
     def genomes_to_evaluate(self, population):
         raise NotImplementedError()
@@ -150,8 +135,8 @@ class ParallelEvaluator(Evaluator):
         :param population: tblup.Population
         :param generation: int
         """
-        if self.pool is None:
-            raise AttributeError("Pool was not set up.")
+        if len(self.consumers) == 0:
+            raise AttributeError("Workers are not set up.")
 
         pass
 
@@ -201,6 +186,29 @@ class BlupParallelEvaluator(ParallelEvaluator):
         self.training_indices, self.validation_indices = train_test_split(self.training_indices,
                                                                           train_size=self.TRAIN_VALID_SPLIT,
                                                                           test_size=1 - self.TRAIN_VALID_SPLIT)
+
+    @staticmethod
+    def worker(in_queue, out_queue, data_path, labels_path):
+        """
+        Deamon worker that only loads the data once.
+        :param in_queue: mp.Queue, input arguments.
+        :param out_queue: mp.Queue, pipe to outside world.
+        :param data_path: string, path to data.
+        :param labels_path: straing, path to labels.
+        :return:
+        """
+        data = np.load(data_path)
+        labels = np.load(labels_path)
+
+        while True:
+            index, blup_kwargs = in_queue.get()
+
+            blup_kwargs['data'] = data
+            blup_kwargs['labels'] = labels
+
+            fitness = BlupParallelEvaluator.blup(**blup_kwargs)
+
+            out_queue.put((index, fitness))
 
     @staticmethod
     def blup(indices, train_indices, validation_indices, data, labels, h2):
@@ -282,16 +290,6 @@ class BlupParallelEvaluator(ParallelEvaluator):
         """
         return self.training_indices, self.validation_indices
 
-    def __call__(self, genome, generation):
-        """
-        Call magic method, assign fitness to genome.
-        :param genome: list, list of indexes into data matrix.
-        :param generation: int, current generation.
-        :return: float, fitness of genome.
-        """
-        train_indices, validation_indices = self.train_validation_indices(generation)
-        return np.asscalar(self.blup(genome, train_indices, validation_indices, self.data, self.labels, self.h2))
-
     def __getstate__(self):
         """
         Magic method called when an object is pickled. Normally returns self.__dict__.
@@ -333,16 +331,28 @@ class BlupParallelEvaluator(ParallelEvaluator):
         super(BlupParallelEvaluator, self).evaluate(population, generation)
 
         to_evaluate, indices = self.genomes_to_evaluate(population)
+        train_indices, validation_indices = self.train_validation_indices(generation)
 
+        blup_kwargs = {
+            'h2': self.h2,
+            'train_indices': train_indices,
+            'validation_indices': validation_indices
+        }
+
+        # Send the blup keyword arguments to the waiting worker process.
+        for genome, index in zip(to_evaluate, indices):
+            blup_kwargs['indices'] = genome
+
+            self.in_queue.put((index, blup_kwargs))
+
+        # Get the results from the output queue.
         results = []
-        for genome in to_evaluate:
-            results.append(
-                self.pool.apply_async(self, (genome, generation))
-            )
+        while len(results) != len(to_evaluate):
+            results.append(self.out_queue.get())
 
-        for i, idx in enumerate(indices):
-            population[idx].fitness = results[i].get()
-            self.archive[population[idx].uid] = population[idx].fitness
+        # Assign recently calculated fitnesses.
+        for index, fitness in results:
+            population[index].fitness = fitness
 
         return population
 
@@ -352,26 +362,27 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param population: tblup.Population.
         :return:
         """
+        blup_kwargs = {
+            'h2': self.h2,
+            'train_indices': np.concatenate((self.training_indices, self.validation_indices)),
+            'validation_indices': self.testing_indices
+        }
+
+        # Put all individuals to be evaluated for testing accuracy.
+        for index, individual in enumerate(population):
+            blup_kwargs['indices'] = individual.genome
+            self.in_queue.put((index, blup_kwargs))
+
+        # Get results.
         results = []
-        for indv in population:
-            results.append(
-                self.pool.apply_async(self.testing_function, (indv.genome,))
-            )
+        while len(results) != len(population):
+            results.append(self.out_queue.get())
 
-        accs = []
-        for res in results:
-            accs.append(res.get())
+        # Make sure things are in order.
+        results.sort(key=lambda x: x[0])
+        _, fitnesses = zip(*results)
 
-        return accs
-
-    def testing_function(self, genome):
-        """
-        Same as __call__, but using the testing indices.
-        :param genome: list, list of indexes into data matrix.
-        :return: float, testing accuracy feature subset.
-        """
-        return BlupParallelEvaluator.blup(genome, np.concatenate((self.training_indices, self.validation_indices)),
-                                          self.testing_indices, self.data, self.labels, self.h2)
+        return list(fitnesses)
 
 
 class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):
@@ -448,6 +459,41 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
         """
         super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
                                                             n_folds=n_folds, splitter=splitter)
+
+    def evaluate(self, population, generation):
+        """
+        Do BLUP, but n_folds times.
+        :param population: tblup.Population
+        :param generation: int, current generation.
+        :return: tblup.Population.
+        """
+        blup_kwargs = {
+            'h2': self.h2
+        }
+
+        to_evaluate, indices = self.genomes_to_evaluate(population)
+        sums = {i: 0 for i in indices}
+
+        for k in range(self.n_folds):
+            train_indices, validation_indices = self.train_validation_indices(k)
+            blup_kwargs['train_indices'] = train_indices
+            blup_kwargs['validation_indices'] = validation_indices
+
+            for genome, index in zip(to_evaluate, indices):
+                blup_kwargs['indices'] = genome
+                self.in_queue.put((index, blup_kwargs))
+
+            results = []
+            while len(results) != len(to_evaluate):
+                results.append(self.out_queue.get())
+
+            for index, fitness in results:
+                sums[index] += fitness
+
+        for index, fitness_sum in sums.items():
+            population[index].fitness = fitness_sum / self.n_folds
+
+        return population
 
     def __call__(self, genome, generation):
         """
