@@ -193,11 +193,15 @@ class DECurrentToBestOneEvolver(Evolver, BinaryCrossoverMixin):
         if best is None:
             best = max(population, key=lambda individual: individual.fitness)
 
+        best_index = population.population.index(best)
+
         parent = population[parent_idx]
 
         # Get mutators.
-        a = exclusive_randrange(0, pop_len, [parent_idx])
-        b = exclusive_randrange(0, pop_len, [parent_idx, a])
+        exclusion_list = [parent_idx, best_index]
+        a = exclusive_randrange(0, pop_len, exclusion_list)
+        exclusion_list.append(a)
+        b = exclusive_randrange(0, pop_len, exclusion_list)
 
         a, b = population[a].get_internal_genome(), population[b].get_internal_genome()
 

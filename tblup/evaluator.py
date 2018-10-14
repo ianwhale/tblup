@@ -4,7 +4,6 @@ import random
 import numpy as np
 import multiprocessing as mp
 from tblup import make_grm
-import tblup.sharearray as sa
 from scipy.stats import pearsonr
 from sklearn.linear_model import Ridge
 from sklearn.decomposition import PCA
@@ -218,7 +217,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param indices: list, list of ints corresponding to the features indices to use.
         :param train_indices: list, list of ints corresponding to which samples to use for training.
         :param validation_indices: list, list of ints corresponding to which samples to use for validation.
-        :param data: np.array, data matrix.
+        :param data: np.array, data matrix.from tblup.sharearray import sharearray
         :param labels: np.array, label vector.
         :param h2: float, heritability.
         :return: float, prediction accuracy.

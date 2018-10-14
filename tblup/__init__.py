@@ -1,4 +1,3 @@
-from tblup.sharearray import sharearray
 from tblup.utils import *
 from tblup.evaluator import *
 from tblup.evolver import *
