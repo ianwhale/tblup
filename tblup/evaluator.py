@@ -209,6 +209,23 @@ class BlupParallelEvaluator(ParallelEvaluator):
 
             out_queue.put((index, fitness))
 
+    def enqueue(self, index, indices, train_indices, validation_indices):
+        """
+        Put a job into the queue.
+        Must be a new dictionary every time due to mutability issues.
+        :param index: int, index of individual.
+        :param indices: np.array, genome of individual.
+        :param train_indices: np.array.
+        :param validation_indices: np.array.
+        """
+        self.in_queue.put((index, {
+            'h2': self.h2,
+            'train_indices': train_indices,
+            'validation_indices': validation_indices,
+            'indices': indices
+        }))
+
+
     @staticmethod
     def blup(indices, train_indices, validation_indices, data, labels, h2):
         """
@@ -334,12 +351,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
 
         # Send the blup keyword arguments to the waiting worker process.
         for genome, index in zip(to_evaluate, indices):
-            self.in_queue.put((index, {
-                'h2': self.h2,
-                'train_indices': train_indices,
-                'validation_indices': validation_indices,
-                'indices': genome
-            }))
+            self.enqueue(index, genome, train_indices, validation_indices)
 
         # Get the results from the output queue.
         results = []
@@ -359,16 +371,10 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param population: tblup.Population.
         :return:
         """
-        blup_kwargs = {
-            'h2': self.h2,
-            'train_indices': np.concatenate((self.training_indices, self.validation_indices)),
-            'validation_indices': self.testing_indices
-        }
-
+        train = np.concatenate((self.training_indices, self.validation_indices))
         # Put all individuals to be evaluated for testing accuracy.
         for index, individual in enumerate(population):
-            blup_kwargs['indices'] = individual.genome
-            self.in_queue.put((index, blup_kwargs))
+            self.enqueue(index, individual.genome, train, self.testing_indices)
 
         # Get results.
         results = []
@@ -464,21 +470,14 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
         :param generation: int, current generation.
         :return: tblup.Population.
         """
-        blup_kwargs = {
-            'h2': self.h2
-        }
-
         to_evaluate, indices = self.genomes_to_evaluate(population)
         sums = {i: 0 for i in indices}
 
         for k in range(self.n_folds):
             train_indices, validation_indices = self.train_validation_indices(k)
-            blup_kwargs['train_indices'] = train_indices
-            blup_kwargs['validation_indices'] = validation_indices
 
             for genome, index in zip(to_evaluate, indices):
-                blup_kwargs['indices'] = genome
-                self.in_queue.put((index, blup_kwargs))
+                self.enqueue(index, genome, train_indices, validation_indices)
 
             results = []
             while len(results) != len(to_evaluate):
