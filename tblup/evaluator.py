@@ -3,6 +3,7 @@ import abc
 import random
 import numpy as np
 import multiprocessing as mp
+from copy import deepcopy
 from tblup import make_grm
 from scipy.stats import pearsonr
 from sklearn.linear_model import Ridge
@@ -202,10 +203,12 @@ class BlupParallelEvaluator(ParallelEvaluator):
         while True:
             index, blup_kwargs = in_queue.get()
 
-            blup_kwargs['data'] = data
-            blup_kwargs['labels'] = labels
+            real_kwargs = deepcopy(blup_kwargs)
 
-            fitness = BlupParallelEvaluator.blup(**blup_kwargs)
+            real_kwargs['data'] = data
+            real_kwargs['labels'] = labels
+
+            fitness = BlupParallelEvaluator.blup(**real_kwargs)
 
             out_queue.put((index, fitness))
 
@@ -352,6 +355,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
         # Assign recently calculated fitnesses.
         for index, fitness in results:
             population[index].fitness = fitness
+            self.archive[population[index].uid] = population[index].fitness
 
         return population
 
@@ -491,6 +495,7 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
 
         for index, fitness_sum in sums.items():
             population[index].fitness = fitness_sum / self.n_folds
+            self.archive[population[index].uid] = population[index].fitness
 
         return population
 
