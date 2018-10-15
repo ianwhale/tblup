@@ -203,12 +203,9 @@ class BlupParallelEvaluator(ParallelEvaluator):
         while True:
             index, blup_kwargs = in_queue.get()
 
-            real_kwargs = deepcopy(blup_kwargs)
-
-            real_kwargs['data'] = data
-            real_kwargs['labels'] = labels
-
-            fitness = BlupParallelEvaluator.blup(**real_kwargs)
+            blup_kwargs['data'] = data
+            blup_kwargs['labels'] = labels
+            fitness = BlupParallelEvaluator.blup(**blup_kwargs)
 
             out_queue.put((index, fitness))
 
@@ -335,17 +332,14 @@ class BlupParallelEvaluator(ParallelEvaluator):
         to_evaluate, indices = self.genomes_to_evaluate(population)
         train_indices, validation_indices = self.train_validation_indices(generation)
 
-        blup_kwargs = {
-            'h2': self.h2,
-            'train_indices': train_indices,
-            'validation_indices': validation_indices
-        }
-
         # Send the blup keyword arguments to the waiting worker process.
         for genome, index in zip(to_evaluate, indices):
-            blup_kwargs['indices'] = genome
-
-            self.in_queue.put((index, blup_kwargs))
+            self.in_queue.put((index, {
+                'h2': self.h2,
+                'train_indices': train_indices,
+                'validation_indices': validation_indices,
+                'indices': genome
+            }))
 
         # Get the results from the output queue.
         results = []
