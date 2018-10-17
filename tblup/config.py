@@ -69,6 +69,10 @@ parser.add_argument("--pca_outliers", type=boollike, default="false", help="only
 #
 parser.add_argument("--regressor", default="blup", help="type of regression scheme, available types: "
                                                         "blup, intercv_blup, intracv_blup, montecv_blup")
+parser.add_argument("--remove_snps", type=boollike, default="false", help="at h(1 + alpha), the r largest indices in "
+                                                                          "the highest fitness individual will be "
+                                                                          "disallowed from the fitness evaluation")
+parser.add_argument("--removal_r", type=int, default=None, help="r largest indices to remove, if None, uses --features")
 parser.add_argument("--heritability", type=float, default=0.4, help="narrow-sense heritability of trait "
                                                                     "being predicted")
 parser.add_argument("--cv_folds", type=int, default=5, help="number of folds to use in cross-validation")

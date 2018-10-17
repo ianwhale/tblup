@@ -3,7 +3,7 @@ import abc
 import random
 import numpy as np
 import multiprocessing as mp
-from copy import deepcopy
+from math import sqrt
 from tblup import make_grm
 from scipy.stats import pearsonr
 from sklearn.linear_model import Ridge
@@ -17,30 +17,42 @@ def get_evaluator(args):
     :param args: object, argparse.Namespace.
     :return: tblup.Evaluator
     """
-    if args.splitter is None:
-        splitter = None
+    splitter = None
 
-    elif args.splitter == "pca":
+    if args.splitter == "pca":
         # Decorate the splitter function so we only have to pass in the data later.
         splitter = lambda data: pca_splitter(data, outliers=args.pca_outliers)
 
-    if args.regressor == "blup":
-        return BlupParallelEvaluator(args.geno, args.pheno, args.heritability, n_procs=args.processes,
-                                     splitter=splitter)
+    if args.removal_r is None:
+        r = args.features
+    else:
+        r = args.removal_r
 
-    if args.regressor == "intracv_blup":
-        return IntraGCVBlupParallelEvaluator(args.geno, args.pheno, args.heritability,
-                                             n_procs=args.processes, n_folds=args.cv_folds,
-                                             splitter=splitter)
+    constructor_args = [args.geno, args.pheno, args.heritability]
+    constructor_kwargs = {'n_procs': args.processes, 'splitter': splitter, 'snp_remover': SNPRemovalHandler(
+        r, args.h2_alpha, args.heritability, args.remove_snps
+    )}
 
-    if args.regressor == "intercv_blup":
-        return InterGCVBlupParallelEvaluator(args.geno, args.pheno, args.heritability,
-                                             n_procs=args.processes, n_folds=args.cv_folds,
-                                             splitter=splitter)
+    regressor = None
 
-    if args.regressor == "montecv_blup":
-        return MonteCarloCVBlupParallelEvaluator(args.geno, args.pheno, args.heritability,
-                                             n_procs=args.processes, splitter=splitter)
+    if args.regressor == args.REGRESSOR_TYPE_BLUP:
+        regressor = BlupParallelEvaluator(*constructor_args, **constructor_kwargs)
+
+    if args.regressor == args.REGRESSOR_TYPE_INTRACV_BLUP:
+        constructor_kwargs['n_folds'] = args.cv_folds
+        regressor = IntraGCVBlupParallelEvaluator(*constructor_args, **constructor_kwargs)
+
+    if args.regressor == args.REGRESSOR_TYPE_INTERCV_BLUP:
+        constructor_kwargs['n_folds'] = args.cv_folds
+        regressor = InterGCVBlupParallelEvaluator(*constructor_args, **constructor_kwargs)
+
+    if args.regressor == args.REGRESSOR_TYPE_MONTECV_BLUP:
+        regressor = MonteCarloCVBlupParallelEvaluator(*constructor_args, **constructor_kwargs)
+
+    if regressor is None:
+        raise NotImplementedError("Regressor described by {} not implemented.".format(args.regressor))
+
+    return regressor
 
 
 #################################################
@@ -151,7 +163,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
     TRAIN_TEST_SPLIT = 0.8   # 80% of the data will be training, 20% will be testing.
     TRAIN_VALID_SPLIT = 0.8  # Of the training data, 20% will be validation.
 
-    def __init__(self, data_path, labels_path, h2, n_procs=-1, splitter=None):
+    def __init__(self, data_path, labels_path, h2, n_procs=-1, splitter=None, snp_remover=None):
         """
         Constructor.
         :param data_path: string, path to the training data.
@@ -160,13 +172,14 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param n_procs: int, number of processes to use.
         :param splitter: callable | None, a special function to split the data into training and testing (optional).
             - If not provided, we just shuffle and use a specified split.
+        :param snp_remover: tblup.SNPRemovalHandler, optional.
         """
         super(BlupParallelEvaluator, self).__init__(data_path, labels_path, n_procs=n_procs)
 
         # Store individuals we have evaluated already.
         # Indexing works as the hashed frozenset of the list => fitness.
         self.archive = {}
-
+        self.snp_remover = snp_remover
         self.h2 = h2  # Used for the regularization parameter.
 
         # Build training and testing indices.
@@ -327,15 +340,19 @@ class BlupParallelEvaluator(ParallelEvaluator):
         :param population: tblup.Population.
         :return: list of lists
         """
-        to_evaluate = []
-        indices = []
+        if self.snp_remover is not None and self.snp_remover.should_remove():
+            return self.snp_remover.genomes_to_evaluate(population, self.archive)
 
-        for i, indv in enumerate(population):
-            if indv.uid not in self.archive:
-                indices.append(i)
-                to_evaluate.append(indv.genome)
+        else:
+            to_evaluate = []
+            indices = []
 
-        return to_evaluate, indices
+            for i, indv in enumerate(population):
+                if indv.uid not in self.archive:
+                    indices.append(i)
+                    to_evaluate.append(indv.genome)
+
+            return to_evaluate, indices
 
     def evaluate(self, population, generation):
         """
@@ -369,12 +386,12 @@ class BlupParallelEvaluator(ParallelEvaluator):
         """
         Evaluate the whole population's testing accuracy.
         :param population: tblup.Population.
-        :return:
+        :return: list, list of testing accuracies.
         """
         train = np.concatenate((self.training_indices, self.validation_indices))
         # Put all individuals to be evaluated for testing accuracy.
         for index, individual in enumerate(population):
-            self.enqueue(index, individual.genome, train, self.testing_indices)
+            self.enqueue(index, self.snp_remover.combine_with_removed(individual.genome), train, self.testing_indices)
 
         # Get results.
         results = []
@@ -397,13 +414,13 @@ class InterGCVBlupParallelEvaluator(BlupParallelEvaluator):
 
     Only overrides the constructor and train_validation_indices.
     """
-    def __init__(self, data_path, labels_path, h2, n_procs=-1, n_folds=5, splitter=None):
+    def __init__(self, data_path, labels_path, h2, n_procs=-1, n_folds=5, splitter=None, snp_remover=None):
         """
         See parent doc.
         :param n_folds: int, number of cross validation folds.
         """
         super(InterGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
-                                                            splitter=splitter)
+                                                            splitter=splitter, snp_remover=snp_remover)
 
         self.n_folds = n_folds
         self.fold_indices = self.make_fold_indices(self.training_indices, self.n_folds)
@@ -456,12 +473,12 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
 
     Only overrides the call method.
     """
-    def __init__(self, data_path, labels_path, h2, n_procs=-1, n_folds=5, splitter=None):
+    def __init__(self, data_path, labels_path, h2, n_procs=-1, n_folds=5, splitter=None, snp_remover=None):
         """
         See parent doc.
         """
         super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
-                                                            n_folds=n_folds, splitter=splitter)
+                                                            n_folds=n_folds, splitter=splitter, snp_remover=snp_remover)
 
     def evaluate(self, population, generation):
         """
@@ -515,12 +532,12 @@ class MonteCarloCVBlupParallelEvaluator(BlupParallelEvaluator):
 
     Only overrides the train_validation_indices method.
     """
-    def __init__(self, data_path, labels_path, h2, n_procs=-1, splitter=None):
+    def __init__(self, data_path, labels_path, h2, n_procs=-1, splitter=None, snp_remover=None):
         """
         See parent doc.
         """
         super(MonteCarloCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
-                                                                splitter=splitter)
+                                                                splitter=splitter, snp_remover=snp_remover)
 
         self.indices = np.concatenate((self.training_indices, self.validation_indices))
 
@@ -533,44 +550,64 @@ class MonteCarloCVBlupParallelEvaluator(BlupParallelEvaluator):
         return train_test_split(self.indices, test_size=0.2)
 
 
-class MLPParallelEvaluator(ParallelEvaluator):
+class SNPRemovalHandler:
     """
-    Multilayer evaluates individuals in parallel with a multilayer perceptron.
+    Mixin to handle removing SNPs without reproducing too much code.
     """
-    def __init__(self, data_path, labels_path, n_procs=-1, splitter=None):
+    def __init__(self, r, alpha, h2, remove_snps):
         """
         Constructor.
-        :param data_path: string, path to the training data.
-        :param labels_path: string, path to the labels for the training data.
-        :param h2: float, trait heritability.
-        :param n_procs: int, number of processes to use.
-        :param splitter: callable | None, a special function to split the data into training and testing (optional).
-            - If not provided, we just shuffle and use a specified split.
+        :param r: int, number of SNPs to remove.
+        :param alpha: float, used to make threshold = h(1 + alpha)
+        :param h2: float, heritability.
+        :param remove_snps: bool, true if we should remove SNPs at the threshold.
         """
-        super(MLPParallelEvaluator, self).__init__(data_path, labels_path, n_procs=n_procs)
+        self.r = r
+        self.threshold = sqrt(h2) * (1 + alpha)
+        self.removed = np.array([])
+        self.remove_snps = remove_snps
 
-        # Store individuals we have evaluated already.
-        # Indexing works as the hashed frozenset of the list => fitness.
-        self.archive = {}
+    def should_remove(self):
+        return self.remove_snps
 
-        # Build training and testing indices.
-        data = np.load(data_path)
-        shape = data.shape
-        self.n_samples, self.n_columns = shape[0], shape[1]
+    def genomes_to_evaluate(self, population, archive):
+        """
+        Same as BlupEvaluator.genomes_to_evaluate
+        :param population: tblup.Population.
+        :param archive: dict, archive from evaluator.
+        :return:
+        """
+        to_evaluate = []
+        indices = []
 
-        if splitter:
-            self.training_indices, self.testing_indices = splitter(data)
+        best = max(population, key=lambda x: x.fitness)
+        if best.fitness > self.threshold:
+            remove = best.genome[-self.r:]  # Get the r "best" SNP indices to remove
+            self.removed = np.union1d(self.removed, remove)
 
-        else:
-            indices = random.sample(range(self.n_samples), self.n_samples)
-            n = int(len(indices) * self.TRAIN_TEST_SPLIT)
+        for i, indv in enumerate(population):
+            if best.fitness > self.threshold and indv.uid in archive:
+                del archive[indv.uid]  # Archived fitness is now invalid.
 
-            self.training_indices = indices[:n]
-            self.testing_indices = indices[n:]
+            if indv.uid not in archive:
+                diff = np.setdiff1d(indv.genome, self.removed)
 
-        n = int(len(self.training_indices) * self.TRAIN_VALID_SPLIT)
-        self.validation_indices = self.training_indices[n:]
-        self.training_indices = self.training_indices[:n]
+                if len(diff) == 0:  # We removed all the indices, so the fitness is 0 (this will error if evaluated).
+                    archive[indv.uid] = 0
+                    indv.fitness = 0.0
+                else:
+                    indices.append(i)
+                    to_evaluate.append(diff)
+
+        return to_evaluate, indices
+
+    def combine_with_removed(self, genome):
+        """
+        Combine the given genome with the indices that have been removed.
+        :param genome: np.array
+        :return: np.array
+        """
+        return list(map(int, np.union1d(genome, self.removed)))
 
 
 #################################################
