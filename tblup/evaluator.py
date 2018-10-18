@@ -607,7 +607,7 @@ class SNPRemovalHandler:
         :param genome: np.array
         :return: np.array
         """
-        return list(map(int, np.union1d(genome, self.removed)))
+        return [int(i) for i in np.union1d(genome, self.removed)]
 
 
 #################################################

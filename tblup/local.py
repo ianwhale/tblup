@@ -54,7 +54,7 @@ class KnockoutLocalSearch(LocalSearch):
         """
         evaluator = self.population.evaluator
         best = deepcopy(max(self.population, key=lambda individual: individual.fitness))
-        genome = best.genome
+        genome = self.population.evaluator.snp_remover.combined_with_removed(best.genome)
         best_fitness = best.fitness
         data, labels = np.load(self.population.evaluator.data_path), np.load(self.population.evaluator.labels_path)
 

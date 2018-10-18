@@ -179,7 +179,11 @@ class Monitor:
         if len(d) == 0 or population.generation != max(d.keys()):
             with open(self.archive_file, 'w') as f:
                 best = max(population, key=lambda individual: individual.fitness)
-                d[population.generation] = [[int(i) for i in best.genome], best.fitness]
+                d[population.generation] = {
+                    "fitness": best.fitness,
+                    "genome": [int(i) for i in best.genome],
+                    "combined_gnome": population.evaluator.snp_remover.combine_with_removed(best.genome)
+                }
                 json.dump(d, f)
 
     def report_local(self, genome, fitness):
