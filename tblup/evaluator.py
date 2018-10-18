@@ -377,7 +377,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
 
         # Assign recently calculated fitnesses.
         for index, fitness in results:
-            population[index].fitness = fitness
+            population[index].set_fitness(fitness)
             self.archive[population[index].uid] = population[index].fitness
 
         return population
@@ -504,7 +504,7 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
                 sums[index] += fitness
 
         for index, fitness_sum in sums.items():
-            population[index].fitness = fitness_sum / self.n_folds
+            population[index].set_fitness(fitness_sum / self.n_folds)
             self.archive[population[index].uid] = population[index].fitness
 
         return population
@@ -593,8 +593,8 @@ class SNPRemovalHandler:
                 diff = np.setdiff1d(indv.genome, self.removed)
 
                 if len(diff) == 0:  # We removed all the indices, so the fitness is 0 (this will error if evaluated).
-                    archive[indv.uid] = 0
-                    indv.fitness = 0.0
+                    archive[indv.uid] = 0.0
+                    indv.set_fitness(0.0)
                 else:
                     indices.append(i)
                     to_evaluate.append(diff)

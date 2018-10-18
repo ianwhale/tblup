@@ -39,6 +39,7 @@ class Individual(abc.ABC):
         self.uid = next(uid)  # Get next globally unique id.
         self.length = length
         self.dimensionality = dimensionality
+        self.fitness = float("-inf")
 
     def __deepcopy__(self, memo):
         """
@@ -56,6 +57,13 @@ class Individual(abc.ABC):
         cp.uid = next(uid)
 
         return cp
+
+    def set_fitness(self, fitness):
+        """
+        Sets the fitness.
+        :param fitness: numeric
+        """
+        self.fitness = fitness
 
     @abc.abstractmethod
     def fill(self, new_size):
@@ -80,8 +88,6 @@ class IndexIndividual(Individual):
 
         else:
             self._genome = np.random.randint(0, dimensionality, length)
-
-        self.fitness = float("-inf")
 
     @property
     def genome(self):
@@ -201,6 +207,15 @@ class CoevolutionIndividual(RandomKeyIndividual):
 
         else:
             raise RuntimeError("Genome of invalid length, must be dimensionality d or d + 1.")
+
+    def set_fitness(self, fitness):
+        """
+        Sets fitness, and penalizes the size of the subset selected by the individual.
+        Operates under the assumption that fitness is in the range [0, 1].
+        Subset penality is normalized from [0, 1] by dividing by the dimensionality.
+        :param fitness: numric.
+        """
+        self.fitness = fitness - (self.length / self.dimensionality)  # Maximize fitness, minimize length.
 
 
 class NullableIndexIndividual(IndexIndividual):
