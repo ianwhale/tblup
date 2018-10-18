@@ -1,7 +1,7 @@
 from itertools import product
 
-# Most jobs should take less than 4 hours, however intragenerational cross-validation will take longer based on
-# the number of folds being used.
+# Most jobs should take less than 4 hours using the below parameters.
+# However intragenerational cross-validation will take k times longer for k-fold cross-validation.
 
 email = ""   # Email to send failure report to.
 output = ""  # Output file (directory must exist). See SLURM output file conventions.
