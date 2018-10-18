@@ -3,14 +3,11 @@
 Trait BLUP [1,2], a large scale feature selection for genomic prediction using differential evolution; a fairly simple algorithm that assigns fitness based off an individual's GBLUP [3] accuracy. 
 
 See `main.py` for an example of how to run. This implementation uses numpy matrices throughout. 
-Convert data accordingly (data conversion scripts coming soon).  
+Convert data accordingly. 
 
 See `requirements.txt` for dependencies.
 
-#### Note
-
-This must be run on a Linux system to use multiprocessing due to the use of shared memeory.
-Parallel evaluation makes use of the `/dev/shm/` folder.
+See `generate_sbs.py` to generate SLURM sbatch scripts for various experiments.
 
 
 #### Citations
