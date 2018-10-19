@@ -336,7 +336,7 @@ class BlupParallelEvaluator(ParallelEvaluator):
 
     def genomes_to_evaluate(self, population):
         """
-        Get the genomes that we haven't evaluated yet.
+        Get the genomes that we have not evaluated yet.
         :param population: tblup.Population.
         :return: list of lists
         """
