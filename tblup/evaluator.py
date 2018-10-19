@@ -482,7 +482,7 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
 
     def evaluate(self, population, generation):
         """
-        Do BLUP, but n_folds times.
+        Do BLUP, but self.n_folds times.
         :param population: tblup.Population
         :param generation: int, current generation.
         :return: tblup.Population.
