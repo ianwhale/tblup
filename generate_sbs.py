@@ -58,6 +58,7 @@ h2_alpha = "--h2_alpha {}"
 remove_snps = "--remove_snps true"
 removal_r = "--removal_r {}"
 individual = "--individual {}"
+coevolve_gamma = "--coevolve_gamma {}"
 
 # Arguments
 regressors = ["intercv_blup", "intracv_blup", "montecv_blup"]
@@ -67,12 +68,18 @@ conditions = ["h2_max", "h2_min", "h2_median", "h2_mean"]
 alphas = [0, 0.1, 0.2]
 r_vals = [None, 500, 250]
 individuals = ["randkeys", "coevolve"]
+gammas = [0.875, 0.75]
 
 for indiv in individuals:
     extras = [individual.format(indiv)]
 
     # Nothing special job.
     write_sb(indiv, extras)
+
+    if indiv == "coevolve":
+        for gamma in gammas:
+            write_sb("_".join([indiv, "g_{}".format(str(gamma).replace(".", "_"))]),
+                     extras + [coevolve_gamma.format(gamma)])
 
     # Different cross-validation schemes.
     for r in regressors:
