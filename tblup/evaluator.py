@@ -390,11 +390,15 @@ class BlupParallelEvaluator(ParallelEvaluator):
         """
         train = np.concatenate((self.training_indices, self.validation_indices))
         # Put all individuals to be evaluated for testing accuracy.
-        for index, individual in enumerate(population):
-            self.enqueue(index, self.snp_remover.combine_with_removed(individual.genome), train, self.testing_indices)
-
-        # Get results.
+        # Do this in a blocking fashion in order to prevent memory overflows if needed.
         results = []
+        for index, individual in enumerate(population):
+            combined = self.snp_remover.combine_with_removed(individual.genome)
+            self.enqueue(index, combined, train, self.testing_indices)
+
+            if len(self.snp_remover.removed) > 0:  # If we removed SNPs, we might have a memory overflow so block.
+                results.append(self.out_queue.get())
+
         while len(results) != len(population):
             results.append(self.out_queue.get())
 
