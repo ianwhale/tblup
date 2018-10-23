@@ -1,14 +1,10 @@
-from math import sqrt
-from sys import maxsize
-
-
 class Population:
 
     ARCHIVE_INTERVAL = 100
 
     def __init__(self, evolver, evaluator, selector, individual, scheduler, length,
                  dimensionality, num_individuals, monitor, stop_condition,
-                 seeded_initial=None, record_testing=False):
+                 seeded_initial=None, record_testing=False, coevolve_gamma=1.0):
         """
         Constructor.
         :param evolver: tblup.Evolver.
@@ -23,6 +19,7 @@ class Population:
         :param stop_condition: string, stopping condition class.
         :param seeded_initial: iterable, tblup.Individuals with some desirable initial properties.
         :param record_testing: bool, True to record testing accuracy during search.
+        :param coevolve_gamma: float, [0,1], weight of size of coevolution individual objective.
         """
         self.evolver = evolver
         self.monitor = monitor
@@ -34,7 +31,8 @@ class Population:
             self.population = []
 
             for _ in range(num_individuals):
-                self.population.append(individual(length, dimensionality, genome=next(seeded_initial)))
+                self.population.append(individual(length, dimensionality, genome=next(seeded_initial),
+                                                  gamma=coevolve_gamma))
 
         else:
             self.population = [individual(length, dimensionality) for _ in range(num_individuals)]

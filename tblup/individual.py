@@ -169,16 +169,18 @@ class CoevolutionIndividual(RandomKeyIndividual):
     """
     Individual that actively evolves the number of features to select during the search.
     """
-    def __init__(self, length, dimensionality, genome=None):
+    def __init__(self, length, dimensionality, genome=None, gamma=1.0):
         """
         Constructor
         :param length: int, here we interpret this as how many indices will be selected after sorting.
         :param dimensionality: int, actual length of the individual.
         :param genome: list, optional list representing the genome.
+        :param gamma: float, weight of
         """
         super(CoevolutionIndividual, self).__init__(length, dimensionality, genome=genome)
 
         self.length = random.randint(int(length * 0.9), int(length * 1.1))
+        self.gamma = gamma
 
     def get_internal_genome(self):
         """
@@ -215,7 +217,7 @@ class CoevolutionIndividual(RandomKeyIndividual):
         Subset penality is normalized from [0, 1] by dividing by the dimensionality.
         :param fitness: numric.
         """
-        self.fitness = fitness - (self.length / self.dimensionality)  # Maximize fitness, minimize length.
+        self.fitness = fitness - self.gamma * (self.length / self.dimensionality)  # Maximize fitness, minimize length.
 
 
 class NullableIndexIndividual(IndexIndividual):

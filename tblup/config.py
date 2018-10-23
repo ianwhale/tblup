@@ -100,6 +100,7 @@ parser.add_argument("--seeder_metric", default="p_value", help="the metric the s
                                                                "available types: p_value")
 parser.add_argument("--individual", default="randkeys", help="type of individual available types: index, nullable, "
                                                              "randkeys, coevolve")
+parser.add_argument("--coevolve_gamma", default=1.0, type=float, help="weight parameter for size of subset")
 parser.add_argument("--clip", type=boollike, default="false", help="if true, clip at the dimensionality bounds [0, d) "
                                                                    "if false, no clipping will occur")
 parser.add_argument("--record_testing", type=boollike, default="false", help="if true, record testing error in search "
