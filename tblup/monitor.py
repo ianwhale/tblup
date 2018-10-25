@@ -188,7 +188,8 @@ class Monitor:
                 d[population.generation] = {
                     "fitness": best.fitness,
                     "genome": [int(i) for i in best.genome],
-                    "combined_gnome": population.evaluator.snp_remover.combine_with_removed(best.genome)
+                    "combined_gnome":
+                        [int(i) for i in population.evaluator.snp_remover.combine_with_removed(best.genome)]
                 }
                 json.dump(d, f)
 

@@ -585,12 +585,15 @@ class SNPRemovalHandler:
         indices = []
 
         best = max(population, key=lambda x: x.fitness)
-        if best.fitness > self.threshold:
+
+        should_remove = best.fitness > self.threshold  # Should we remove SNPs this generation?
+
+        if should_remove:
             remove = best.genome[-self.r:]  # Get the r "best" SNP indices to remove
             self.removed = np.union1d(self.removed, remove)
 
         for i, indv in enumerate(population):
-            if best.fitness > self.threshold and indv.uid in archive:
+            if should_remove and indv.uid in archive:
                 del archive[indv.uid]  # Archived fitness is now invalid.
 
             if indv.uid not in archive:
@@ -611,7 +614,7 @@ class SNPRemovalHandler:
         :param genome: np.array
         :return: np.array
         """
-        return [int(i) for i in np.union1d(genome, self.removed)]
+        return np.union1d(genome, self.removed).astype(int)
 
 
 #################################################
