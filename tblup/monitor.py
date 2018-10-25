@@ -131,7 +131,7 @@ class Monitor:
             if args.h2_alpha != 0.0:
                 option_list.append("alpha" + str(args.h2_alpha).replace(".", ""))
 
-        if args.remove_snps is not None:
+        if args.remove_snps:
             option_list.append("remove_snps")
 
             if args.removal_r is not None:
