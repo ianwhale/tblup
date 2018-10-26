@@ -74,12 +74,13 @@ class IndexIndividual(Individual):
     """
     Individual whose genome is a list of column indices in a data matrix.
     """
-    def __init__(self, length, dimensionality, genome=None):
+    def __init__(self, length, dimensionality, genome=None, gamma=1.0):
         """
         Constructor.
         :param length: int, length of the individual.
         :param dimensionality: int, the number of columns in the data
         :param genome: list, optional list representing the genome.
+        :param gamma: unused.
         """
         super(IndexIndividual, self).__init__(length, dimensionality)
 
@@ -134,12 +135,13 @@ class RandomKeyIndividual(IndexIndividual):
     Indices into the matrix are obtained by sorted based on the value of a key.
         - I.e., we obtain the indices we want in the matrix by getting the top-N indices that would sort the genome.
     """
-    def __init__(self, length, dimensionality, genome=None):
+    def __init__(self, length, dimensionality, genome=None, gamma=1.0):
         """
         Constructor
         :param length: int, here we interpret this as how many indices will be selected after sorting.
         :param dimensionality: int, actual length of the individual.
         :param genome: list, optional list representing the genome.
+        :param gamma: unused.
         """
         super(RandomKeyIndividual, self).__init__(length, dimensionality)
 
@@ -215,7 +217,7 @@ class CoevolutionIndividual(RandomKeyIndividual):
         Sets fitness, and penalizes the size of the subset selected by the individual.
         Operates under the assumption that fitness is in the range [0, 1].
         Subset penality is normalized from [0, 1] by dividing by the dimensionality.
-        :param fitness: numric.
+        :param fitness: numeric.
         """
         self.fitness = fitness - self.gamma * (self.length / self.dimensionality)  # Maximize fitness, minimize length.
 
