@@ -35,7 +35,7 @@ class Population:
                                                   gamma=coevolve_gamma))
 
         else:
-            self.population = [individual(length, dimensionality) for _ in range(num_individuals)]
+            self.population = [individual(length, dimensionality, gamma=coevolve_gamma) for _ in range(num_individuals)]
 
         self.record_testing = record_testing
         self.dimensionality = dimensionality
