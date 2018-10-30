@@ -65,7 +65,8 @@ def build_kwargs(args):
         "num_individuals": args.population_size,
         "monitor": Monitor(args),
         "record_testing": args.record_testing,
-        "stop_condition": get_stop_condition(args)
+        "stop_condition": get_stop_condition(args),
+        "coevolve_gamma": args.coevolve_gamma
     }
 
     d["seeded_initial"] = get_seeder(args, d["evaluator"])
