@@ -117,7 +117,7 @@ class Monitor:
             option_list.append(str(args.individual))
 
             if args.individual == "coevolve":
-                option_list.append("gamma" + str(args.coevolve_gamma).replace(".", "_"))
+                option_list.append("gamma" + str(args.coevolve_gamma).replace(".", ""))
 
         if not args.clip:
             option_list.append("noclip")
