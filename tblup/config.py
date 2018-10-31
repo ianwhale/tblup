@@ -90,11 +90,11 @@ parser.add_argument("--feature_scheduling", default=None,
                          "available types: stepwise, adaptive, progressive_cuts")
 parser.add_argument("--cuts_multiplier", type=int, default=10,
                     help="multiplier for progressive_cuts scheduling strategy")
-parser.add_argument("-de", "--de_strategy", default="de_rand_1", help="type of differential evolution scheme"
+parser.add_argument("--de_strategy", default="de_rand_1", help="type of differential evolution scheme"
                                                                       "available types: de_rand_1, de_currenttobest_1, "
                                                                       "sade, mde_pbx")
-parser.add_argument("-cr", "--crossover_rate", type=float, default=0.8, help="probability of crossover")
-parser.add_argument("-mi", "--mutation_intensity", type=float, default=0.5, help="mutation intensity")
+parser.add_argument("--crossover_rate", type=float, default=0.8, help="probability of crossover")
+parser.add_argument("--mutation_intensity", type=float, default=0.5, help="mutation intensity")
 parser.add_argument("--seeder", default=None, help="seeder to use, available types: top_snps")
 parser.add_argument("--seeder_metric", default="p_value", help="the metric the seeder will use to filter the data "
                                                                "available types: p_value")
