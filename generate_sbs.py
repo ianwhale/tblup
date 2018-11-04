@@ -117,6 +117,7 @@ for indiv in individuals:
 best_dict = {
     regressor: "montecv_blup",
     h2_alpha: 0,
+    stop_condition: "h2_min"
 }
 
 # Pairwise Combination Experiments.
@@ -139,4 +140,5 @@ for indiv in individuals:
 
     # Monte + self-adaptive + alpha = 0
     for s in strategies:
-        write_sb("_".join(name_as_list + [s]), extras + [de_strategy.format(s)])
+        write_sb("_".join(name_as_list + [s]), extras + [de_strategy.format(s),
+                                                         stop_condition.format(best_dict[stop_condition])])
