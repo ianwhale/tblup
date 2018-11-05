@@ -3,8 +3,9 @@ from itertools import product
 # Most jobs should take less than 4 hours using the below parameters.
 # However intragenerational cross-validation will take k times longer for k-fold cross-validation.
 
-email = ""   # Email to send failure report to.
-output = ""  # Output file (directory must exist). See SLURM output file conventions.
+email = ""          # Email to send failure report to.
+output = ""         # Output file (directory must exist). See SLURM output file conventions.
+heritability = 0.4  # Estimated heritability of trait (or exact in a simulated environment).
 
 base_str = """#!/bin/bash
 #SBATCH --mail-user={email} 
@@ -21,7 +22,7 @@ cd ${{SLURM_SUBMIT_DIR}}
 cd ./tblup
 source activate tblup
 
-OMP_NUM_THREADS=1 python main.py -p 40 --seed ${{SLURM_ARRAY_TASK_ID}} --local_search knockout --generations 5000 --features {features} --heritability 0.4 --pheno ./data/thesis_phenos_100.npy {extras}
+OMP_NUM_THREADS=1 python main.py -p 40 --seed ${{SLURM_ARRAY_TASK_ID}} --local_search knockout --generations 5000 --features {features} --heritability {heritability} --pheno ./data/thesis_phenos_100.npy {extras}
 
 echo ""
 echo ""
@@ -44,6 +45,7 @@ def write_sb(name, extras):
             email=email,
             output=output,
             features=features,
+            heritability=heritability,
             extras=" ".join(extras)
         ))
 
