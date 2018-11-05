@@ -117,10 +117,11 @@ for indiv in individuals:
 best_dict = {
     regressor: "montecv_blup",
     h2_alpha: 0,
-    stop_condition: "h2_min"
+    stop_condition: "h2_min",
+    seeder: "top_snps"
 }
 
-# Pairwise Combination Experiments.
+# Combination Experiments.
 for indiv in individuals:
     name_as_list = [indiv]
     extras = [individual.format(indiv)]
@@ -131,14 +132,29 @@ for indiv in individuals:
     extras += [regressor.format(best_dict[regressor])]
     name_as_list += [best_dict[regressor]]
 
+    # Monte + seeding
+    write_sb("_".join(name_as_list + [best_dict[seeder]]), extras + [seeder.format(best_dict[seeder])])
+
     # Monte + self-adaptive
     for s in strategies:
         write_sb("_".join(name_as_list + [s]), extras + [de_strategy.format(s)])
 
-    extras += [h2_alpha.format(best_dict[h2_alpha])]
+    # Monte + seeding + self-adaptive
+    seeding_extras = extras + [seeder.format(best_dict[seeder])]
+    seeding_name_list = name_as_list + [best_dict[seeder]]
+    for s in strategies:
+        write_sb("_".join(seeding_name_list), seeding_extras + [de_strategy.format(s)])
+
+    extras += [h2_alpha.format(best_dict[h2_alpha]), stop_condition.format(best_dict[stop_condition])]
     name_as_list += ["h2_min_" + str(best_dict[h2_alpha]).replace(".", "_")]
 
     # Monte + self-adaptive + alpha = 0
     for s in strategies:
-        write_sb("_".join(name_as_list + [s]), extras + [de_strategy.format(s),
-                                                         stop_condition.format(best_dict[stop_condition])])
+        write_sb("_".join(name_as_list + [s]), extras + [de_strategy.format(s)])
+
+    # Monte + self-adpative + seeding + alpha = 0
+    extras += [seeder.format(best_dict[seeder])]
+    name_as_list += [best_dict[seeder]]
+
+    for s in strategies:
+        write_sb("_".join(name_as_list + [s]), extras + [de_strategy.format(s)])
