@@ -60,7 +60,7 @@ class TestFunctionEvaluator(Evaluator):
 
     def genomes_to_evaluate(self, population): pass
 
-    def evaluate(self, population, generation):
+    def evaluate(self, previous_population, population, generation):
         for indv in population:
             if indv.uid in self.archive:
                 continue

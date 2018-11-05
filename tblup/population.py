@@ -44,7 +44,7 @@ class Population:
         self.generation = 0
 
         # Gather statistics on initial population.
-        self.evaluator.evaluate(self, self.generation)
+        self.evaluator.evaluate(self, self, self.generation)
         self.monitor.report(self)
         self.monitor.save_archive(self)
 
@@ -65,7 +65,7 @@ class Population:
         :return: bool, True if the search should continue, False if not.
         """
         next_pop = self.evolver.evolve(self)
-        self.evaluator.evaluate(next_pop, self.generation)
+        self.evaluator.evaluate(self, next_pop, self.generation)
         self.population = self.selector.select(self, next_pop)
 
         # If we need to increase the individual length, we also must reevaluate.

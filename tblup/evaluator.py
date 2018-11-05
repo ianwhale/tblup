@@ -85,9 +85,10 @@ class Evaluator(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def evaluate(self, population, generation):
+    def evaluate(self, previous_population, next_population, generation):
         """
-        :param population: tblup.Population
+        :param previous_population: tblup.Population
+        :param next_population: list
         :param generation: int
         :return:
         """
@@ -142,9 +143,10 @@ class ParallelEvaluator(Evaluator):
     def genomes_to_evaluate(self, population):
         raise NotImplementedError()
 
-    def evaluate(self, population, generation):
+    def evaluate(self, previous_population, next_population, generation):
         """
-        :param population: tblup.Population
+        :param previous_population: tblup.Population
+        :param next_population: list
         :param generation: int
         """
         if len(self.consumers) == 0:
@@ -338,11 +340,11 @@ class BlupParallelEvaluator(ParallelEvaluator):
         """
         Get the genomes that we have not evaluated yet.
         :param population: tblup.Population.
-        :return: list of lists
+        :return: (list, list, bool), (genomes to evaluate, indices of those genomes, should we reevaluate
+                                                                                     the previous population?)
         """
-        if self.snp_remover is not None and self.snp_remover.should_remove():
+        if self.snp_remover is not None and self.snp_remover.should_remove():  # Do we have an active remover?
             return self.snp_remover.genomes_to_evaluate(population, self.archive)
-
         else:
             to_evaluate = []
             indices = []
@@ -352,18 +354,38 @@ class BlupParallelEvaluator(ParallelEvaluator):
                     indices.append(i)
                     to_evaluate.append(indv.genome)
 
-            return to_evaluate, indices
+            return to_evaluate, indices, False
 
-    def evaluate(self, population, generation):
+    def evaluate(self, previous_population, next_population, generation):
         """
         Evaluate the population with GBLUP.
-        :param population: list, list of individuals..
-        :param generation: int, current generation.
+        :param previous_population: tblup.Population
+        :param next_population: list
+        :param generation: int
         :return: list, list of tblup.Individuals.
         """
-        super(BlupParallelEvaluator, self).evaluate(population, generation)
+        super(BlupParallelEvaluator, self).evaluate(previous_population, next_population, generation)
 
-        to_evaluate, indices = self.genomes_to_evaluate(population)
+        to_evaluate, indices, reevaluate = self.genomes_to_evaluate(next_population)
+
+        next_population = self._evaluate(next_population, to_evaluate, indices, generation)
+
+        if reevaluate:
+            to_evaluate, indices, _ = self.genomes_to_evaluate(previous_population)
+            self._evaluate(previous_population, to_evaluate, indices, generation)
+            previous_population.monitor.log_snp_removal_event(generation)
+
+        return next_population
+
+    def _evaluate(self, population, to_evaluate, indices, generation):
+        """
+        Private evaluation code.
+        :param population: list | tblup.Population, list of individuals.
+        :param to_evaluate: list, genomes to evaluate.
+        :param indices: list, indices of genomes in population.
+        :param generation: int, current generation.
+        :return: list, list of evaluated individuals.
+        """
         train_indices, validation_indices = self.train_validation_indices(generation)
 
         # Send the blup keyword arguments to the waiting worker process.
@@ -484,14 +506,15 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
         super(IntraGCVBlupParallelEvaluator, self).__init__(data_path, labels_path, h2, n_procs=n_procs,
                                                             n_folds=n_folds, splitter=splitter, snp_remover=snp_remover)
 
-    def evaluate(self, population, generation):
+    def _evaluate(self, population, to_evaluate, indices, generation):
         """
-        Do BLUP, but self.n_folds times.
-        :param population: tblup.Population
+        Private evaluation code.
+        :param population: list | tblup.Population, list of individuals.
+        :param to_evaluate: list, genomes to evaluate.
+        :param indices: list, indices of genomes in population.
         :param generation: int, current generation.
-        :return: tblup.Population.
+        :return: list, list of evaluated individuals.
         """
-        to_evaluate, indices = self.genomes_to_evaluate(population)
         sums = {i: 0 for i in indices}
 
         for k in range(self.n_folds):
@@ -512,22 +535,6 @@ class IntraGCVBlupParallelEvaluator(InterGCVBlupParallelEvaluator):
             self.archive[population[index].uid] = population[index].fitness
 
         return population
-
-    def __call__(self, genome, generation):
-        """
-        Call magic method, assign fitness to genome.
-        Does k-fold cross-validated BLUP.
-        :param genome: list, list of indexes into data matrix.
-        :param generation: int, current generation. Not used for this override.
-        :return: float, fitness of genome. Average Pearson's R over the folds.
-        """
-        fitness_sum = 0
-        x, y = self.data, self.labels
-        for k in range(self.n_folds):
-            train_indices, validation_indices = self.train_validation_indices(k)
-            fitness_sum += self.blup(genome, train_indices, validation_indices, x, y, self.h2)
-
-        return np.asscalar(fitness_sum / self.n_folds)
 
 
 class MonteCarloCVBlupParallelEvaluator(BlupParallelEvaluator):
@@ -552,6 +559,11 @@ class MonteCarloCVBlupParallelEvaluator(BlupParallelEvaluator):
         :return: (list, list), (training indices, validation indices)
         """
         return train_test_split(self.indices, test_size=0.2)
+
+
+###########################################
+#           SNP Removal Handler           #
+###########################################
 
 
 class SNPRemovalHandler:
@@ -592,21 +604,24 @@ class SNPRemovalHandler:
             remove = best.genome[-self.r:]  # Get the r "best" SNP indices to remove
             self.removed = np.union1d(self.removed, remove)
 
-        for i, indv in enumerate(population):
-            if should_remove and indv.uid in archive:
-                del archive[indv.uid]  # Archived fitness is now invalid.
+            # Dump the archive (without losing the reference to the original).
+            keys = list(archive.keys())
+            for key in keys:
+                del archive[key]
 
+        for i, indv in enumerate(population):
             if indv.uid not in archive:
                 diff = np.setdiff1d(indv.genome, self.removed)
 
-                if len(diff) == 0:  # We removed all the indices, so the fitness is 0 (this will error if evaluated).
+                if len(diff) == 0:  # We removed all the indices, so the fitness is 0 (this will error if evaluated)
                     archive[indv.uid] = 0.0
                     indv.set_fitness(0.0)
+
                 else:
                     indices.append(i)
                     to_evaluate.append(diff)
 
-        return to_evaluate, indices
+        return to_evaluate, indices, should_remove
 
     def combine_with_removed(self, genome):
         """

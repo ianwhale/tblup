@@ -42,6 +42,7 @@ class Monitor:
         testing_file = join(results, str(args.seed).zfill(3) + "_results_testing")
         archive_file = join(results, str(args.seed).zfill(3) + "_archive")
         localsearch_file = join(results, str(args.seed).zfill(3) + "_local")
+        removal_log = join(results, str(args.seed).zfill(3) + "_removals")
 
         # Be sure to not overwrite a file.
         i = 1
@@ -49,11 +50,13 @@ class Monitor:
         temp_test = testing_file
         temp_arch = archive_file
         temp_loc = localsearch_file
+        temp_removal_log = removal_log
         while isfile(temp_res + ".csv") or isfile(temp_arch + ".json"):
             temp_res = results_file + "_" + str(i)
             temp_test = testing_file + "_" + str(i)
             temp_arch = archive_file + "_" + str(i)
             temp_loc = localsearch_file + "_" + str(i)
+            temp_removal_log = removal_log + "_" + str(i)
 
             i += 1
 
@@ -61,6 +64,7 @@ class Monitor:
         self.testing_file = temp_test + ".csv"
         self.archive_file = temp_arch + ".json"
         self.localsearch_file = temp_loc + ".json"
+        self.removal_log = temp_removal_log + ".csv"
 
         header = ["generation", "max_fitness", "min_fitness", "median_fitness", "mean_fitness", "stdev_fitness", "len"]
         with open(self.results_file, "w") as f:
@@ -273,3 +277,14 @@ class Monitor:
 
         name_as_list[1] = "testing"
         np.save(os.path.join(self.results, "_".join(name_as_list)), evaluator.testing_indices)
+
+    def log_snp_removal_event(self, generation):
+        """
+        Log a SNP removal event.
+        :param generation: int, generation that the removal happened.
+        """
+        with open(self.removal_log, "a") as file:
+            file.write(str(generation) + "\n")
+
+
+
