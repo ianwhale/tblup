@@ -145,7 +145,7 @@ for indiv in individuals:
     seeding_extras = extras + [seeder.format(best_dict[seeder])]
     seeding_name_list = name_as_list + [best_dict[seeder]]
     for s in strategies:
-        write_sb("_".join(seeding_name_list), seeding_extras + [de_strategy.format(s)])
+        write_sb("_".join(seeding_name_list + [s]), seeding_extras + [de_strategy.format(s)])
 
     extras += [h2_alpha.format(best_dict[h2_alpha]), stop_condition.format(best_dict[stop_condition])]
     name_as_list += ["h2_min_" + str(best_dict[h2_alpha]).replace(".", "_")]
