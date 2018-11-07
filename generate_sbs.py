@@ -63,7 +63,7 @@ coevolve_gamma = "--coevolve_gamma {}"
 
 # Arguments
 regressors = ["intercv_blup", "intracv_blup", "montecv_blup"]
-strategies = ["de_currenttobest_1", "sade", "mde_pbx"]
+strategies = ["sade", "mde_pbx"]
 seeders = ["top_snps"]
 conditions = ["h2_max", "h2_min", "h2_median", "h2_mean"]
 alphas = [0, 0.1, 0.2, -0.05, -0.1, -0.2]
@@ -120,7 +120,8 @@ best_dict = {
     regressor: "montecv_blup",
     h2_alpha: 0,
     stop_condition: "h2_min",
-    seeder: "top_snps"
+    seeder: "top_snps",
+    remove_snps: 0
 }
 
 # Combination Experiments.
@@ -147,16 +148,26 @@ for indiv in individuals:
     for s in strategies:
         write_sb("_".join(seeding_name_list + [s]), seeding_extras + [de_strategy.format(s)])
 
-    extras += [h2_alpha.format(best_dict[h2_alpha]), stop_condition.format(best_dict[stop_condition])]
-    name_as_list += ["h2_min_" + str(best_dict[h2_alpha]).replace(".", "_")]
-
     # Monte + self-adaptive + alpha = 0
+    stopping_extras = extras + [h2_alpha.format(best_dict[h2_alpha]), stop_condition.format(best_dict[stop_condition])]
+    stopping_name_as_list = name_as_list + ["h2_min_" + str(best_dict[h2_alpha]).replace(".", "_")]
     for s in strategies:
-        write_sb("_".join(name_as_list + [s]), extras + [de_strategy.format(s)])
+        write_sb("_".join(stopping_name_as_list + [s]), stopping_extras + [de_strategy.format(s)])
+
+    # Monte + self-adaptive + SNP removal
+    removal_extras = extras + [h2_alpha.format(best_dict[remove_snps])]
+    removal_name_as_list = name_as_list + ["remove_r_all_a_{}".format(best_dict[remove_snps])]
+    for s in strategies:
+        write_sb("_".join(removal_name_as_list + [s]), removal_extras + [de_strategy.format(s)])
 
     # Monte + self-adpative + seeding + alpha = 0
-    extras += [seeder.format(best_dict[seeder])]
-    name_as_list += [best_dict[seeder]]
-
+    stopping_extras += [seeder.format(best_dict[seeder])]
+    stopping_name_as_list += [best_dict[seeder]]
     for s in strategies:
-        write_sb("_".join(name_as_list + [s]), extras + [de_strategy.format(s)])
+        write_sb("_".join(stopping_name_as_list + [s]), stopping_extras + [de_strategy.format(s)])
+
+    # Monte + self-adaptive + seeding + SNP removal
+    removal_extras += [seeder.format(best_dict[seeder])]
+    removal_name_as_list += [best_dict[seeder]]
+    for s in strategies:
+        write_sb("_".join(removal_name_as_list + [s]), removal_extras + [de_strategy.format(s)])
