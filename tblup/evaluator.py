@@ -601,7 +601,8 @@ class SNPRemovalHandler:
         should_remove = best.fitness > self.threshold  # Should we remove SNPs this generation?
 
         if should_remove:
-            remove = best.genome[-self.r:]  # Get the r "best" SNP indices to remove
+            snps_to_remove = len(best) if self.r < len(best) else self.r
+            remove = best.genome[-snps_to_remove:]  # Get the r "best" SNP indices to remove
             self.removed = np.union1d(self.removed, remove)
 
             # Dump the archive (without losing the reference to the original).
