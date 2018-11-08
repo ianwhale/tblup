@@ -155,7 +155,7 @@ for indiv in individuals:
         write_sb("_".join(stopping_name_as_list + [s]), stopping_extras + [de_strategy.format(s)])
 
     # Monte + self-adaptive + SNP removal
-    removal_extras = extras + [h2_alpha.format(best_dict[remove_snps])]
+    removal_extras = extras + [h2_alpha.format(best_dict[remove_snps]), remove_snps]
     removal_name_as_list = name_as_list + ["remove_r_all_a_{}".format(best_dict[remove_snps])]
     for s in strategies:
         write_sb("_".join(removal_name_as_list + [s]), removal_extras + [de_strategy.format(s)])
