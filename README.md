@@ -5,7 +5,7 @@ Trait BLUP [1,2], a large scale feature selection for genomic prediction using d
 See `main.py` for an example of how to run. This implementation uses numpy matrices throughout. 
 Convert data accordingly. 
 
-See `requirements.txt` for dependencies.
+See `requirements.txt` for dependencies. Use the command `pip3 install -r requirements.txt` to install the required libraries.
 
 See `generate_sbs.py` to generate SLURM sbatch scripts for various experiments.
 
